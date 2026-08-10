@@ -10,6 +10,10 @@ export function smoothnessScore(handCount = 0, droppedPartsCount = 0) {
   return Math.max(0, 20 - 2 * (clampInteger(handCount, 0, 99) + clampInteger(droppedPartsCount, 0, 99)));
 }
 
+export function smoothnessReady(shot) {
+  return Number.isInteger(shot?.handCount) && Number.isInteger(shot?.droppedPartsCount);
+}
+
 export function autoScore(autoLaunch) {
   return autoLaunch ? 2 : 0;
 }
@@ -33,7 +37,7 @@ export function eligibleBallCount(touches = []) {
 }
 
 export function missionScore(shot) {
-  if (!shot?.distancePassed) return 0;
+  if (shot?.distancePassed !== true) return 0;
 
   const touches = shot.touches || [];
   const results = shot.results || [];
@@ -46,16 +50,16 @@ export function missionScore(shot) {
 }
 
 export function shotScore(shot, shotIndex) {
-  if (!shot?.distancePassed) {
+  if (shot?.distancePassed !== true) {
     return {
       auto: 0,
-      smoothness: shotIndex === 0 ? 0 : null,
+      smoothness: shotIndex === 0 ? (smoothnessReady(shot) ? smoothnessScore(shot.handCount, shot.droppedPartsCount) : 0) : null,
       mission: 0,
       total: 0,
     };
   }
 
-  const smoothness = shotIndex === 0 ? smoothnessScore(shot.handCount, shot.droppedPartsCount) : null;
+  const smoothness = shotIndex === 0 && smoothnessReady(shot) ? smoothnessScore(shot.handCount, shot.droppedPartsCount) : null;
   const auto = autoScore(shot.autoLaunch);
   const mission = missionScore(shot);
   return {

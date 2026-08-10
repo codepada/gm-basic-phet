@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { TARGETS, PK_POLICY } from "../src/core/constants.js";
-import { mainScore, missionScore, pkScore, smoothnessScore } from "../src/core/scoring.js";
+import { mainScore, missionScore, pkScore, shotScore, smoothnessScore } from "../src/core/scoring.js";
 import { pkNeededForMain } from "../src/core/pk.js";
 
 describe("main scoring", () => {
@@ -12,6 +12,23 @@ describe("main scoring", () => {
 
   it("zeros a shot when distance is under 90 cm", () => {
     expect(missionScore({ distancePassed: false, target: TARGETS.point3, results: ["score", "score"] })).toBe(0);
+  });
+
+  it("does not award points for unselected defaults", () => {
+    const score = shotScore(
+      {
+        target: TARGETS.launcher,
+        distancePassed: null,
+        handCount: null,
+        droppedPartsCount: null,
+        autoLaunch: null,
+        touches: [null, null],
+        results: [null, null],
+      },
+      0,
+    );
+    expect(score.total).toBe(0);
+    expect(score.smoothness).toBe(0);
   });
 
   it("ignores touched balls and scores launcher targets", () => {

@@ -410,7 +410,7 @@ textarea {
 
 .counter {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 42px 42px 42px;
+  grid-template-columns: minmax(0, 1fr) 42px 42px 42px 72px;
   align-items: center;
   gap: 6px;
 }
@@ -422,6 +422,19 @@ textarea {
 
 .counter strong {
   text-align: center;
+}
+
+.mini-choice {
+  min-height: 38px;
+  padding: 0 6px;
+  background: #dfe8e4;
+  color: var(--ink);
+  font-size: 0.78rem;
+}
+
+.mini-choice.active {
+  background: var(--green);
+  color: white;
 }
 
 .ball-table {
@@ -523,6 +536,14 @@ textarea {
 
   .choice {
     min-height: 58px;
+  }
+
+  .counter {
+    grid-template-columns: minmax(0, 1fr) 40px 40px 40px;
+  }
+
+  .mini-choice {
+    grid-column: 2 / -1;
   }
 
   .sticky-total {

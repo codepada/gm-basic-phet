@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { LEVELS, LEVEL_LABELS, PK_POLICY, TARGETS } from "./core/constants.js";
-import { mainScore, missionScore, smoothnessScore } from "./core/scoring.js";
+import { mainScore, missionScore, smoothnessReady, smoothnessScore } from "./core/scoring.js";
 import { pkNeededForMain } from "./core/pk.js";
 import { sampleTeams } from "./data/sampleTeams.js";
 import "./styles/app.css";
@@ -21,12 +21,12 @@ const initialTeams = Object.fromEntries(
 
 const blankShot = (withSmoothness = false) => ({
   target: TARGETS.launcher,
-  distancePassed: true,
-  handCount: withSmoothness ? 0 : undefined,
-  droppedPartsCount: withSmoothness ? 0 : undefined,
-  autoLaunch: false,
-  touches: [false, false],
-  results: ["", ""],
+  distancePassed: null,
+  handCount: withSmoothness ? null : undefined,
+  droppedPartsCount: withSmoothness ? null : undefined,
+  autoLaunch: null,
+  touches: [null, null],
+  results: [null, null],
 });
 
 function App() {
@@ -275,6 +275,8 @@ function ScoreWizard({ team, existing, onCancel, onSave }) {
   const breakdown = mainScore(draft);
   const steps = ["อุปกรณ์", "ยิง 1", "ยิง 2", "ยิง 3", "สรุป"];
   const isLastStep = step === steps.length - 1;
+  const currentStepReady = step === 0 || step === 4 || shotReady(shots[step - 1], step - 1);
+  const allShotsReady = shots.every((shot, index) => shotReady(shot, index));
 
   const updateShot = (index, patch) => {
     setShots((current) => current.map((shot, shotIndex) => (shotIndex === index ? { ...shot, ...patch } : shot)));
@@ -319,14 +321,24 @@ function ScoreWizard({ team, existing, onCancel, onSave }) {
         <div className="wizard-actions">
           <button className="ghost" disabled={step === 0} onClick={() => setStep((current) => Math.max(0, current - 1))}>ย้อนกลับ</button>
           {isLastStep ? (
-            <button disabled={existing && !reason.trim()} onClick={() => onSave(team, draft, reason)}>บันทึกคะแนน</button>
+            <button disabled={!allShotsReady || (existing && !reason.trim())} onClick={() => onSave(team, draft, reason)}>บันทึกคะแนน</button>
           ) : (
-            <button onClick={() => setStep((current) => Math.min(steps.length - 1, current + 1))}>ถัดไป</button>
+            <button disabled={!currentStepReady} onClick={() => setStep((current) => Math.min(steps.length - 1, current + 1))}>ถัดไป</button>
           )}
         </div>
       </section>
     </main>
   );
+}
+
+function shotReady(shot, index) {
+  if (!shot) return false;
+  if (shot.distancePassed !== true && shot.distancePassed !== false) return false;
+  if (shot.distancePassed === false) return true;
+  if (index === 0 && !smoothnessReady(shot)) return false;
+  if (shot.autoLaunch !== true && shot.autoLaunch !== false) return false;
+  if (!shot.touches?.every((value) => value === true || value === false)) return false;
+  return shot.touches.every((touched, ballIndex) => touched || shot.results?.[ballIndex] !== null);
 }
 
 function DeviceStep({ value, onChange }) {
@@ -384,7 +396,7 @@ function SummaryStep({ existing, reason, setReason, deviceCount, shots, breakdow
 
 function ShotEditor({ index, shot, onChange }) {
   const mission = missionScore(shot);
-  const smooth = index === 0 ? smoothnessScore(shot.handCount, shot.droppedPartsCount) : null;
+  const smooth = index === 0 && smoothnessReady(shot) ? smoothnessScore(shot.handCount, shot.droppedPartsCount) : null;
 
   return (
     <section className="panel shot-panel scoring-step">
@@ -411,27 +423,27 @@ function ShotEditor({ index, shot, onChange }) {
       <section className="score-section">
         <h3>ระยะยิง</h3>
         <ChoiceGrid columns={2}>
-          <button className={shot.distancePassed ? "choice pass active" : "choice pass"} onClick={() => onChange({ distancePassed: true })}>ผ่าน 90 cm</button>
-          <button className={!shot.distancePassed ? "choice fail active" : "choice fail"} onClick={() => onChange({ distancePassed: false })}>ไม่ผ่าน</button>
+          <button className={shot.distancePassed === true ? "choice pass active" : "choice pass"} onClick={() => onChange({ distancePassed: true })}>ผ่าน 90 cm</button>
+          <button className={shot.distancePassed === false ? "choice fail active" : "choice fail"} onClick={() => onChange({ distancePassed: false })}>ไม่ผ่าน</button>
         </ChoiceGrid>
       </section>
 
-      {shot.distancePassed ? (
+      {shot.distancePassed === true ? (
         <>
           {index === 0 ? (
             <section className="score-section smooth-grid">
               <h3>ความราบรื่น</h3>
               <Counter label="ใช้มือ" value={shot.handCount} onChange={(value) => onChange({ handCount: value })} />
               <Counter label="ชิ้นส่วนหล่น" value={shot.droppedPartsCount} onChange={(value) => onChange({ droppedPartsCount: value })} />
-              <strong className={smooth === 20 ? "smooth-score ok" : "smooth-score danger"}>{smooth}/20</strong>
+              <strong className={smooth === 20 ? "smooth-score ok" : "smooth-score danger"}>{smooth ?? "-"}/20</strong>
             </section>
           ) : null}
 
           <section className="score-section">
             <h3>ยิงอัตโนมัติ</h3>
             <ChoiceGrid columns={2}>
-              <button className={shot.autoLaunch ? "choice pass active" : "choice pass"} onClick={() => onChange({ autoLaunch: true })}>ออโต้ +2</button>
-              <button className={!shot.autoLaunch ? "choice neutral active" : "choice neutral"} onClick={() => onChange({ autoLaunch: false })}>ไม่ออโต้</button>
+              <button className={shot.autoLaunch === true ? "choice pass active" : "choice pass"} onClick={() => onChange({ autoLaunch: true })}>ออโต้ +2</button>
+              <button className={shot.autoLaunch === false ? "choice neutral active" : "choice neutral"} onClick={() => onChange({ autoLaunch: false })}>ไม่ออโต้</button>
             </ChoiceGrid>
           </section>
 
@@ -449,18 +461,18 @@ function ShotEditor({ index, shot, onChange }) {
             ))}
           </section>
         </>
-      ) : <p className="danger">ไม่ผ่านระยะ คะแนนรอบนี้ = 0</p>}
+      ) : shot.distancePassed === false ? <p className="danger">ไม่ผ่านระยะ คะแนนรอบนี้ = 0</p> : <p className="muted">กรุณาเลือกระยะยิงก่อน</p>}
     </section>
   );
 }
 
 function BallTouchChoice({ ballIndex, shot, onChange }) {
-  const touched = shot.touches?.[ballIndex] || false;
+  const touched = shot.touches?.[ballIndex];
   const setTouched = (value) => {
     const touches = [...(shot.touches || [false, false])];
     touches[ballIndex] = value;
-    const results = [...(shot.results || ["", ""])];
-    if (value) results[ballIndex] = "";
+    const results = [...(shot.results || [null, null])];
+    results[ballIndex] = null;
     onChange({ touches, results });
   };
 
@@ -468,16 +480,16 @@ function BallTouchChoice({ ballIndex, shot, onChange }) {
     <div className="ball-card">
       <strong>ลูกที่ {ballIndex + 1}</strong>
       <ChoiceGrid columns={2}>
-        <button className={!touched ? "choice pass active" : "choice pass"} onClick={() => setTouched(false)}>ไม่สัมผัส</button>
-        <button className={touched ? "choice fail active" : "choice fail"} onClick={() => setTouched(true)}>สัมผัส</button>
+        <button className={touched === false ? "choice pass active" : "choice pass"} onClick={() => setTouched(false)}>ไม่สัมผัส</button>
+        <button className={touched === true ? "choice fail active" : "choice fail"} onClick={() => setTouched(true)}>สัมผัส</button>
       </ChoiceGrid>
     </div>
   );
 }
 
 function BallResultChoice({ ballIndex, shot, onChange }) {
-  const touched = shot.touches?.[ballIndex] || false;
-  const result = shot.results?.[ballIndex] || "";
+  const touched = shot.touches?.[ballIndex] === true;
+  const result = shot.results?.[ballIndex] ?? null;
   const options = shot.target === TARGETS.point3
     ? [
         { value: "", label: "ไม่ได้", points: 0 },
@@ -491,7 +503,7 @@ function BallResultChoice({ ballIndex, shot, onChange }) {
       ];
 
   const setResult = (value) => {
-    const results = [...(shot.results || ["", ""])];
+    const results = [...(shot.results || [null, null])];
     results[ballIndex] = value;
     onChange({ results });
   };
@@ -520,12 +532,14 @@ function ChoiceGrid({ children, columns = 2 }) {
 }
 
 function Counter({ label, value, onChange }) {
+  const selected = Number.isInteger(value);
   return (
     <div className="counter">
       <span>{label}</span>
-      <button onClick={() => onChange(Math.max(0, value - 1))}>-</button>
-      <strong>{value}</strong>
-      <button onClick={() => onChange(value + 1)}>+</button>
+      <button onClick={() => onChange(Math.max(0, (value ?? 0) - 1))}>-</button>
+      <strong>{selected ? value : "-"}</strong>
+      <button onClick={() => onChange((value ?? 0) + 1)}>+</button>
+      <button className={value === 0 ? "mini-choice active" : "mini-choice"} onClick={() => onChange(0)}>0 ครั้ง</button>
     </div>
   );
 }
