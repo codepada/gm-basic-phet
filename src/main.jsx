@@ -544,9 +544,11 @@ function ShotStepCard({ index, phase, shot, onChange }) {
 
             <div className="sub-section compact-section">
               <h4>สัมผัสก่อนเป้าหมาย</h4>
-              {[0, 1].map((ballIndex) => (
-                <BallTouchChoice key={ballIndex} ballIndex={ballIndex} shot={shot} onChange={onChange} />
-              ))}
+              <div className="ball-card-grid touch-grid">
+                {[0, 1].map((ballIndex) => (
+                  <BallTouchChoice key={ballIndex} ballIndex={ballIndex} shot={shot} onChange={onChange} />
+                ))}
+              </div>
             </div>
           </>
         ) : null}
@@ -555,9 +557,11 @@ function ShotStepCard({ index, phase, shot, onChange }) {
         {phase === "score" && shot.distancePassed !== false ? (
           <>
             {shot.target ? <p className="muted">{shot.target === TARGETS.launcher ? "เครื่องยิง: เลือก A/B/C หรือไม่ได้คะแนน" : "จุดที่ 3: เลือกเข้า 10 หรือไม่ได้คะแนน"}</p> : <p className="danger">กรุณาเลือกตำแหน่งลูกบอลก่อน</p>}
-            {[0, 1].map((ballIndex) => (
-              <BallResultChoice key={ballIndex} ballIndex={ballIndex} shot={shot} onChange={onChange} />
-            ))}
+            <div className="ball-card-grid result-grid">
+              {[0, 1].map((ballIndex) => (
+                <BallResultChoice key={ballIndex} ballIndex={ballIndex} shot={shot} onChange={onChange} />
+              ))}
+            </div>
           </>
         ) : null}
       </section>

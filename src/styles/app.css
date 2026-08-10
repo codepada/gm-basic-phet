@@ -58,6 +58,7 @@ button.ghost {
 
 .wizard-shell {
   height: 100dvh;
+  height: 100svh;
   overflow: hidden;
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr) auto;
@@ -428,6 +429,12 @@ textarea {
   background: #fbfcfc;
 }
 
+.ball-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
 .sub-section {
   display: grid;
   gap: 8px;
@@ -575,16 +582,20 @@ textarea {
   }
 
   .wizard-shell .topbar {
-    margin-bottom: 6px;
+    margin-bottom: 4px;
   }
 
   .wizard-shell .topbar h1 {
-    font-size: 1.08rem;
+    font-size: 1rem;
   }
 
   .wizard-shell .topbar button {
-    min-height: 36px;
+    min-height: 34px;
     padding-inline: 10px;
+  }
+
+  .wizard-shell .eyebrow {
+    font-size: 0.7rem;
   }
 
   .topbar select {
@@ -624,12 +635,13 @@ textarea {
 
   .choice-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
   }
 
   .choice {
-    min-height: 48px;
-    padding: 6px;
-    font-size: 0.92rem;
+    min-height: 44px;
+    padding: 4px;
+    font-size: 0.88rem;
   }
 
   .choice small {
@@ -637,50 +649,92 @@ textarea {
   }
 
   .scoring-step {
-    gap: 8px;
-    padding: 10px;
+    gap: 6px;
+    padding: 8px;
   }
 
   .score-section {
-    gap: 6px;
+    gap: 5px;
   }
 
   .score-section h3 {
-    font-size: 1rem;
+    font-size: 0.95rem;
   }
 
   .score-section h4 {
-    font-size: 0.86rem;
+    font-size: 0.8rem;
   }
 
   .shot-title > strong {
-    min-width: 58px;
-    min-height: 36px;
+    min-width: 52px;
+    min-height: 32px;
+    font-size: 0.92rem;
+  }
+
+  .shot-title h2 {
     font-size: 1rem;
   }
 
+  .shot-title .eyebrow {
+    display: none;
+  }
+
   .ball-card {
-    gap: 5px;
-    padding: 7px;
+    gap: 4px;
+    padding: 5px;
   }
 
   .ball-card strong {
-    font-size: 0.9rem;
+    font-size: 0.8rem;
+  }
+
+  .ball-card .choice-grid {
+    gap: 4px;
+  }
+
+  .ball-card .choice {
+    min-height: 36px;
+    font-size: 0.78rem;
+  }
+
+  .ball-card .choice small {
+    font-size: 0.6rem;
+  }
+
+  .sub-section {
+    gap: 5px;
+    padding-top: 6px;
+  }
+
+  .compact-section {
+    gap: 4px;
+    padding-top: 5px;
+  }
+
+  .smooth-grid {
+    gap: 4px;
+  }
+
+  .smooth-score {
+    min-height: 34px;
+    font-size: 1rem;
   }
 
   .counter {
-    grid-template-columns: minmax(0, 1fr) 42px 46px 42px;
+    grid-template-columns: minmax(0, 1fr) 36px 40px 36px;
+    gap: 4px;
+    font-size: 0.82rem;
   }
 
   .counter button,
   .counter strong {
-    min-height: 38px;
+    min-height: 34px;
   }
 
   .sticky-total {
     margin-inline: -10px;
     grid-template-columns: 84px minmax(0, 1fr);
-    padding-block: 8px max(8px, env(safe-area-inset-bottom));
+    padding-block: 6px max(6px, env(safe-area-inset-bottom));
   }
 
   .sticky-total span {
@@ -688,11 +742,70 @@ textarea {
   }
 
   .sticky-total strong {
-    font-size: 1.45rem;
+    font-size: 1.28rem;
   }
 
   .wizard-actions button {
-    min-height: 38px;
+    min-height: 34px;
     padding-inline: 8px;
+  }
+
+  .wizard-progress {
+    gap: 4px;
+    margin-bottom: 6px;
+  }
+
+  .wizard-progress span {
+    font-size: 0.7rem;
+  }
+
+  .wizard-progress strong {
+    font-size: 0.88rem;
+  }
+
+  .progress-track {
+    height: 4px;
+  }
+}
+
+@media (max-height: 620px) and (max-width: 680px) {
+  .app-shell {
+    padding: 6px;
+  }
+
+  .wizard-shell .topbar {
+    margin-bottom: 2px;
+  }
+
+  .wizard-progress {
+    margin-bottom: 4px;
+  }
+
+  .scoring-step {
+    padding: 6px;
+  }
+
+  .choice {
+    min-height: 38px;
+    font-size: 0.8rem;
+  }
+
+  .ball-card .choice {
+    min-height: 32px;
+    font-size: 0.72rem;
+  }
+
+  .counter button,
+  .counter strong {
+    min-height: 30px;
+  }
+
+  .smooth-score {
+    min-height: 30px;
+  }
+
+  .sticky-total {
+    margin-inline: -6px;
+    padding-block: 5px max(5px, env(safe-area-inset-bottom));
   }
 }
