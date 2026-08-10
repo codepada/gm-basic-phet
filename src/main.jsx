@@ -20,7 +20,7 @@ const initialTeams = Object.fromEntries(
 );
 
 const blankShot = (withSmoothness = false) => ({
-  target: TARGETS.launcher,
+  target: null,
   distancePassed: null,
   handCount: withSmoothness ? null : undefined,
   droppedPartsCount: withSmoothness ? null : undefined,
@@ -267,16 +267,17 @@ function ImportPanel({ onImport }) {
 }
 
 function ScoreWizard({ team, existing, onCancel, onSave }) {
-  const [deviceCount, setDeviceCount] = useState(existing?.deviceCount ?? 0);
+  const [deviceCount, setDeviceCount] = useState(existing?.deviceCount ?? null);
   const [shots, setShots] = useState(existing?.shots ?? [blankShot(true), blankShot(false), blankShot(false)]);
   const [reason, setReason] = useState("");
   const [step, setStep] = useState(0);
   const draft = { deviceCount, shots };
   const breakdown = mainScore(draft);
-  const steps = ["อุปกรณ์", "ยิง 1", "ยิง 2", "ยิง 3", "สรุป"];
+  const steps = buildWizardSteps();
+  const activeStep = steps[step];
   const isLastStep = step === steps.length - 1;
-  const currentStepReady = step === 0 || step === 4 || shotReady(shots[step - 1], step - 1);
-  const allShotsReady = shots.every((shot, index) => shotReady(shot, index));
+  const currentStepReady = wizardStepReady(activeStep, deviceCount, shots);
+  const allShotsReady = Number.isInteger(deviceCount) && shots.every((shot, index) => shotReady(shot, index));
 
   const updateShot = (index, patch) => {
     setShots((current) => current.map((shot, shotIndex) => (shotIndex === index ? { ...shot, ...patch } : shot)));
@@ -292,17 +293,18 @@ function ScoreWizard({ team, existing, onCancel, onSave }) {
         <button className="ghost" onClick={onCancel}>ปิด</button>
       </header>
 
-      <nav className="wizard-steps" aria-label="ขั้นตอนให้คะแนน">
-        {steps.map((label, index) => (
-          <button key={label} className={step === index ? "active" : ""} onClick={() => setStep(index)}>
-            {label}
-          </button>
-        ))}
-      </nav>
+      <WizardProgress step={step} steps={steps} setStep={setStep} />
 
-      {step === 0 ? <DeviceStep value={deviceCount} onChange={setDeviceCount} /> : null}
-      {step >= 1 && step <= 3 ? <ShotEditor index={step - 1} shot={shots[step - 1]} onChange={(patch) => updateShot(step - 1, patch)} /> : null}
-      {isLastStep ? (
+      {activeStep.type === "device" ? <DeviceStep value={deviceCount} onChange={setDeviceCount} /> : null}
+      {activeStep.type === "shot" ? (
+        <ShotStepCard
+          phase={activeStep.phase}
+          index={activeStep.shotIndex}
+          shot={shots[activeStep.shotIndex]}
+          onChange={(patch) => updateShot(activeStep.shotIndex, patch)}
+        />
+      ) : null}
+      {activeStep.type === "summary" ? (
         <SummaryStep
           existing={existing}
           reason={reason}
@@ -331,12 +333,76 @@ function ScoreWizard({ team, existing, onCancel, onSave }) {
   );
 }
 
+function buildWizardSteps() {
+  const shotSteps = [0, 1, 2].flatMap((shotIndex) => [
+    { type: "shot", shotIndex, phase: "position", shortLabel: `ยิง ${shotIndex + 1}.1`, title: `ยิงครั้งที่ ${shotIndex + 1}: ตำแหน่งลูกบอล` },
+    { type: "shot", shotIndex, phase: "distance", shortLabel: `ยิง ${shotIndex + 1}.2`, title: `ยิงครั้งที่ ${shotIndex + 1}: ระยะยิง` },
+    { type: "shot", shotIndex, phase: "operation", shortLabel: `ยิง ${shotIndex + 1}.3`, title: `ยิงครั้งที่ ${shotIndex + 1}: การทำงาน` },
+    { type: "shot", shotIndex, phase: "score", shortLabel: `ยิง ${shotIndex + 1}.4`, title: `ยิงครั้งที่ ${shotIndex + 1}: คะแนนพื้นที่` },
+  ]);
+  return [
+    { type: "device", shortLabel: "1", title: "เลือกจำนวนอุปกรณ์" },
+    ...shotSteps,
+    { type: "summary", shortLabel: "สรุป", title: "สรุปคะแนน" },
+  ];
+}
+
+function WizardProgress({ step, steps, setStep }) {
+  const active = steps[step];
+  return (
+    <section className="wizard-progress">
+      <div>
+        <span>ขั้นตอน {step + 1}/{steps.length}</span>
+        <strong>{active.title}</strong>
+      </div>
+      <div className="progress-track" aria-hidden="true">
+        <span style={{ width: `${((step + 1) / steps.length) * 100}%` }} />
+      </div>
+      <nav className="wizard-steps" aria-label="ขั้นตอนให้คะแนน">
+        {steps.map((item, index) => (
+          <button key={`${item.shortLabel}-${index}`} className={step === index ? "active" : ""} onClick={() => setStep(index)}>
+            {item.shortLabel}
+          </button>
+        ))}
+      </nav>
+    </section>
+  );
+}
+
+function wizardStepReady(step, deviceCount, shots) {
+  if (step.type === "summary") return true;
+  if (step.type === "device") return Number.isInteger(deviceCount);
+  const shot = shots[step.shotIndex];
+  if (step.phase === "position") return shot?.target === TARGETS.launcher || shot?.target === TARGETS.point3;
+  if (step.phase === "distance") return shot?.distancePassed === true || shot?.distancePassed === false;
+  if (step.phase === "operation") return operationReady(shot, step.shotIndex);
+  if (step.phase === "score") return scoreReady(shot);
+  return false;
+}
+
 function shotReady(shot, index) {
   if (!shot) return false;
+  if (shot.target !== TARGETS.launcher && shot.target !== TARGETS.point3) return false;
   if (shot.distancePassed !== true && shot.distancePassed !== false) return false;
   if (shot.distancePassed === false) return true;
+  if (!operationReady(shot, index)) return false;
+  return scoreReady(shot);
+}
+
+function operationReady(shot, index) {
+  if (!shot) return false;
+  if (shot.distancePassed === false) return true;
+  if (shot.distancePassed !== true) return false;
   if (index === 0 && !smoothnessReady(shot)) return false;
   if (shot.autoLaunch !== true && shot.autoLaunch !== false) return false;
+  return shot.touches?.every((value) => value === true || value === false) ?? false;
+}
+
+function scoreReady(shot) {
+  if (!shot) return false;
+  if (shot.distancePassed === false) return true;
+  if (shot.distancePassed !== true) return false;
+  if (shot.target !== TARGETS.launcher && shot.target !== TARGETS.point3) return false;
   if (!shot.touches?.every((value) => value === true || value === false)) return false;
   return shot.touches.every((touched, ballIndex) => touched || shot.results?.[ballIndex] !== null);
 }
@@ -394,9 +460,15 @@ function SummaryStep({ existing, reason, setReason, deviceCount, shots, breakdow
   );
 }
 
-function ShotEditor({ index, shot, onChange }) {
+function ShotStepCard({ index, phase, shot, onChange }) {
   const mission = missionScore(shot);
   const smooth = index === 0 && smoothnessReady(shot) ? smoothnessScore(shot.handCount, shot.droppedPartsCount) : null;
+  const phaseTitles = {
+    position: "ตำแหน่งลูกบอลที่ยิง",
+    distance: "ระยะยิง",
+    operation: "การทำงาน",
+    score: "คะแนนพื้นที่",
+  };
 
   return (
     <section className="panel shot-panel scoring-step">
@@ -408,60 +480,68 @@ function ShotEditor({ index, shot, onChange }) {
         <strong>{mission} คะแนน</strong>
       </div>
 
-      <section className="score-section">
-        <h3>ตำแหน่งลูกบอลที่ยิง</h3>
-        <ChoiceGrid columns={2}>
-          <button className={shot.target === TARGETS.launcher ? "choice active" : "choice"} onClick={() => onChange({ target: TARGETS.launcher, results: ["", ""] })}>
-            เครื่องยิง
-          </button>
-          <button className={shot.target === TARGETS.point3 ? "choice active" : "choice"} onClick={() => onChange({ target: TARGETS.point3, results: ["", ""] })}>
-            จุดที่ 3
-          </button>
-        </ChoiceGrid>
-      </section>
+      <section className="score-section single-card">
+        <h3>{phaseTitles[phase]}</h3>
+        {phase === "position" ? (
+          <ChoiceGrid columns={2}>
+            <button className={shot.target === TARGETS.launcher ? "choice active" : "choice"} onClick={() => onChange({ target: TARGETS.launcher, results: [null, null] })}>
+              เครื่องยิง
+            </button>
+            <button className={shot.target === TARGETS.point3 ? "choice active" : "choice"} onClick={() => onChange({ target: TARGETS.point3, results: [null, null] })}>
+              จุดที่ 3
+            </button>
+          </ChoiceGrid>
+        ) : null}
 
-      <section className="score-section">
-        <h3>ระยะยิง</h3>
-        <ChoiceGrid columns={2}>
-          <button className={shot.distancePassed === true ? "choice pass active" : "choice pass"} onClick={() => onChange({ distancePassed: true })}>ผ่าน 90 cm</button>
-          <button className={shot.distancePassed === false ? "choice fail active" : "choice fail"} onClick={() => onChange({ distancePassed: false })}>ไม่ผ่าน</button>
-        </ChoiceGrid>
-      </section>
+        {phase === "distance" ? (
+          <ChoiceGrid columns={2}>
+            <button className={shot.distancePassed === true ? "choice pass active" : "choice pass"} onClick={() => onChange({ distancePassed: true })}>ผ่าน 90 cm</button>
+            <button className={shot.distancePassed === false ? "choice fail active" : "choice fail"} onClick={() => onChange({ distancePassed: false })}>ไม่ผ่าน</button>
+          </ChoiceGrid>
+        ) : null}
 
-      {shot.distancePassed === true ? (
+        {phase === "operation" && shot.distancePassed === false ? <p className="danger">ไม่ผ่านระยะ ข้ามการทำงาน คะแนนรอบนี้ = 0</p> : null}
+        {phase === "operation" && shot.distancePassed !== false ? (
         <>
           {index === 0 ? (
-            <section className="score-section smooth-grid">
+            <div className="smooth-grid">
               <h3>ความราบรื่น</h3>
               <Counter label="ใช้มือ" value={shot.handCount} onChange={(value) => onChange({ handCount: value })} />
               <Counter label="ชิ้นส่วนหล่น" value={shot.droppedPartsCount} onChange={(value) => onChange({ droppedPartsCount: value })} />
               <strong className={smooth === 20 ? "smooth-score ok" : "smooth-score danger"}>{smooth ?? "-"}/20</strong>
-            </section>
+            </div>
           ) : null}
 
-          <section className="score-section">
+          <div className="sub-section">
             <h3>ยิงอัตโนมัติ</h3>
             <ChoiceGrid columns={2}>
               <button className={shot.autoLaunch === true ? "choice pass active" : "choice pass"} onClick={() => onChange({ autoLaunch: true })}>ออโต้ +2</button>
               <button className={shot.autoLaunch === false ? "choice neutral active" : "choice neutral"} onClick={() => onChange({ autoLaunch: false })}>ไม่ออโต้</button>
             </ChoiceGrid>
-          </section>
+          </div>
 
-          <section className="score-section">
+          <div className="sub-section">
             <h3>สัมผัสก่อนเป้าหมาย</h3>
             {[0, 1].map((ballIndex) => (
               <BallTouchChoice key={ballIndex} ballIndex={ballIndex} shot={shot} onChange={onChange} />
             ))}
-          </section>
+          </div>
+        </>
+        ) : null}
 
-          <section className="score-section">
-            <h3>คะแนนเป้าหมาย</h3>
+        {phase === "score" && shot.distancePassed === false ? <p className="danger">ไม่ผ่านระยะ คะแนนรอบนี้ = 0</p> : null}
+        {phase === "score" && shot.distancePassed !== false ? (
+          <>
+            {shot.target ? <p className="muted">{shot.target === TARGETS.launcher ? "เครื่องยิง: เลือก A/B/C หรือไม่ได้คะแนน" : "จุดที่ 3: เลือกเข้า 10 หรือไม่ได้คะแนน"}</p> : <p className="danger">กรุณาเลือกตำแหน่งลูกบอลก่อน</p>}
             {[0, 1].map((ballIndex) => (
               <BallResultChoice key={ballIndex} ballIndex={ballIndex} shot={shot} onChange={onChange} />
             ))}
-          </section>
-        </>
-      ) : shot.distancePassed === false ? <p className="danger">ไม่ผ่านระยะ คะแนนรอบนี้ = 0</p> : <p className="muted">กรุณาเลือกระยะยิงก่อน</p>}
+          </>
+        ) : null}
+      </section>
+
+      {phase !== "distance" && shot.distancePassed === null ? <p className="muted">ขั้นนี้จะครบได้หลังเลือกระยะยิง</p> : null}
+      {phase !== "position" && !shot.target ? <p className="muted">ขั้นนี้จะครบได้หลังเลือกตำแหน่งลูกบอล</p> : null}
     </section>
   );
 }

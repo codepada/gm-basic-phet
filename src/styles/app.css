@@ -246,15 +246,18 @@ textarea {
 }
 
 .wizard-steps {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  display: flex;
   gap: 6px;
   margin-bottom: 12px;
+  overflow-x: auto;
+  padding-bottom: 2px;
 }
 
 .wizard-steps button {
+  flex: 0 0 auto;
   min-height: 42px;
-  padding: 0 6px;
+  min-width: 68px;
+  padding: 0 10px;
   background: #dfe8e4;
   color: var(--ink);
   font-size: 0.78rem;
@@ -263,6 +266,40 @@ textarea {
 .wizard-steps button.active {
   background: var(--green);
   color: white;
+}
+
+.wizard-progress {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.wizard-progress > div:first-child {
+  display: grid;
+  gap: 2px;
+}
+
+.wizard-progress span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.wizard-progress strong {
+  font-size: 1rem;
+}
+
+.progress-track {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #dfe8e4;
+}
+
+.progress-track span {
+  display: block;
+  height: 100%;
+  background: var(--green);
 }
 
 .scoring-step {
@@ -291,8 +328,6 @@ textarea {
 .score-section {
   display: grid;
   gap: 10px;
-  border-top: 1px solid var(--line);
-  padding-top: 12px;
 }
 
 .score-section h3 {
@@ -307,7 +342,7 @@ textarea {
 }
 
 .choice {
-  min-height: 56px;
+  min-height: 64px;
   display: grid;
   place-items: center;
   gap: 2px;
@@ -377,6 +412,13 @@ textarea {
   border-radius: 8px;
   padding: 10px;
   background: #fbfcfc;
+}
+
+.sub-section {
+  display: grid;
+  gap: 8px;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
 }
 
 .ball-card.disabled {
@@ -527,6 +569,7 @@ textarea {
 
   .wizard-steps button {
     min-height: 38px;
+    min-width: 62px;
     font-size: 0.7rem;
   }
 
