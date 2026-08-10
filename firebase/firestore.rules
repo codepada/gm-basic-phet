@@ -1,0 +1,41 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userRole() {
+      return get(/databases/$(database)/documents/competitions/green-mech-2026/users/$(request.auth.uid)).data.role;
+    }
+
+    function isAdmin() {
+      return signedIn() && userRole() == 'admin';
+    }
+
+    function isJudgeFor(levelId) {
+      return signedIn() && userRole() == levelId;
+    }
+
+    match /competitions/{competitionId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+
+      match /users/{userId} {
+        allow read: if signedIn();
+        allow write: if isAdmin();
+      }
+
+      match /settings/{docId} {
+        allow read: if signedIn();
+        allow write: if isAdmin();
+      }
+
+      match /levels/{levelId}/{collectionName}/{docId} {
+        allow read: if signedIn();
+        allow create, update: if isAdmin() || isJudgeFor(levelId);
+        allow delete: if isAdmin();
+      }
+    }
+  }
+}
