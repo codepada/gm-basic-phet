@@ -78,7 +78,11 @@ function App() {
       },
       ...current,
     ]);
-    setSelectedTeam(null);
+    const scoredIds = new Set(Object.keys(scores));
+    scoredIds.add(team.id);
+    const currentIndex = teams.findIndex((item) => item.id === team.id);
+    const nextTeam = teams.slice(currentIndex + 1).find((item) => !scoredIds.has(item.id));
+    setSelectedTeam(nextTeam ?? null);
   };
 
   if (selectedTeam) {
@@ -328,7 +332,7 @@ function ScoreWizard({ team, existing, onCancel, onSave }) {
         <div className="wizard-actions">
           <button className="ghost" disabled={step === 0} onClick={() => setStep((current) => Math.max(0, current - 1))}>ย้อนกลับ</button>
           {isLastStep ? (
-            <button disabled={saveDisabled} onClick={() => onSave(team, draft, reason)}>บันทึกคะแนน</button>
+            <button disabled={saveDisabled} onClick={() => onSave(team, draft, reason)}>บันทึก / ทีมถัดไป</button>
           ) : (
             <button disabled={!currentStepReady} onClick={() => setStep((current) => Math.min(steps.length - 1, current + 1))}>ถัดไป</button>
           )}
@@ -422,7 +426,7 @@ function scoreReady(shot) {
 
 function DeviceStep({ value, onChange }) {
   return (
-    <section className="panel scoring-step">
+    <section className="panel scoring-step device-step">
       <div>
         <p className="eyebrow">ก่อนยิง</p>
         <h2>จำนวนอุปกรณ์</h2>
@@ -441,7 +445,7 @@ function DeviceStep({ value, onChange }) {
 
 function SummaryStep({ existing, reason, setReason, deviceCount, shots, breakdown, firstIncompleteStep, goToStep }) {
   return (
-    <section className="panel scoring-step">
+    <section className="panel scoring-step summary-step">
       <div>
         <p className="eyebrow">ตรวจสอบก่อนบันทึก</p>
         <h2>สรุปคะแนน</h2>
@@ -492,7 +496,7 @@ function ShotStepCard({ index, phase, shot, onChange }) {
   };
 
   return (
-    <section className="panel shot-panel scoring-step">
+    <section className={`panel shot-panel scoring-step phase-${phase}`}>
       <div className="shot-title">
         <div>
           <p className="eyebrow">รอบแรก</p>
@@ -566,8 +570,10 @@ function ShotStepCard({ index, phase, shot, onChange }) {
         ) : null}
       </section>
 
-      {phase !== "distance" && shot.distancePassed === null ? <p className="muted">ขั้นนี้จะครบได้หลังเลือกระยะยิง</p> : null}
-      {phase !== "position" && !shot.target ? <p className="muted">ขั้นนี้จะครบได้หลังเลือกตำแหน่งลูกบอล</p> : null}
+      <div className="step-note">
+        {phase !== "distance" && shot.distancePassed === null ? <p className="muted">ขั้นนี้จะครบได้หลังเลือกระยะยิง</p> : null}
+        {phase !== "position" && !shot.target ? <p className="muted">ขั้นนี้จะครบได้หลังเลือกตำแหน่งลูกบอล</p> : null}
+      </div>
     </section>
   );
 }

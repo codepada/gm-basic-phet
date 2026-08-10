@@ -311,10 +311,18 @@ textarea {
 }
 
 .scoring-step {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) minmax(18px, auto);
   gap: 10px;
   padding: 12px;
   min-height: 0;
   overflow: auto;
+}
+
+.device-step,
+.summary-step {
+  grid-template-rows: auto auto minmax(0, 1fr);
+  align-content: start;
 }
 
 .shot-title {
@@ -337,7 +345,17 @@ textarea {
 
 .score-section {
   display: grid;
+  align-content: start;
   gap: 8px;
+}
+
+.phase-position .score-section,
+.phase-distance .score-section {
+  padding-top: 10px;
+}
+
+.phase-score .score-section {
+  padding-top: 2px;
 }
 
 .score-section h3 {
@@ -556,6 +574,18 @@ textarea {
   font-size: 0.78rem;
   font-weight: 900;
   text-align: right;
+}
+
+.step-note {
+  min-height: 18px;
+  display: grid;
+  align-content: end;
+}
+
+.step-note p {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 800;
 }
 
 .incomplete-box {
