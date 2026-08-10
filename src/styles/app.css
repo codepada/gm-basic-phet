@@ -245,6 +245,153 @@ textarea {
   margin-bottom: 12px;
 }
 
+.wizard-steps {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.wizard-steps button {
+  min-height: 42px;
+  padding: 0 6px;
+  background: #dfe8e4;
+  color: var(--ink);
+  font-size: 0.78rem;
+}
+
+.wizard-steps button.active {
+  background: var(--green);
+  color: white;
+}
+
+.scoring-step {
+  gap: 14px;
+  padding-bottom: 88px;
+}
+
+.shot-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.shot-title > strong {
+  min-width: 76px;
+  min-height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: #e6efeb;
+  color: var(--green-dark);
+  font-size: 1.2rem;
+}
+
+.score-section {
+  display: grid;
+  gap: 10px;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.score-section h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.choice-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--choice-columns), minmax(0, 1fr));
+  gap: 8px;
+}
+
+.choice {
+  min-height: 56px;
+  display: grid;
+  place-items: center;
+  gap: 2px;
+  border: 2px solid transparent;
+  background: #e7eeeb;
+  color: var(--ink);
+  padding: 8px;
+  text-align: center;
+}
+
+.choice small {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 900;
+}
+
+.choice.active {
+  border-color: var(--green-dark);
+  background: var(--green);
+  color: white;
+}
+
+.choice.active small {
+  color: white;
+}
+
+.choice.pass {
+  background: #dff3e7;
+  color: #145c39;
+}
+
+.choice.pass.active {
+  background: var(--green);
+  color: white;
+}
+
+.choice.fail {
+  background: #f7dfe2;
+  color: var(--red);
+}
+
+.choice.fail.active {
+  background: var(--red);
+  color: white;
+}
+
+.choice.neutral {
+  background: #f1ece4;
+  color: var(--amber);
+}
+
+.choice.neutral.active {
+  background: var(--amber);
+  color: white;
+}
+
+.summary-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.ball-card {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+  background: #fbfcfc;
+}
+
+.ball-card.disabled {
+  background: #f8eeee;
+}
+
+.smooth-score {
+  min-height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: #eef4f1;
+  font-size: 1.2rem;
+}
+
 .check-row {
   display: flex;
   align-items: center;
@@ -308,7 +455,7 @@ textarea {
   position: sticky;
   bottom: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
   align-items: center;
   gap: 12px;
   margin: 0 -12px -12px;
@@ -323,6 +470,12 @@ textarea {
 
 .sticky-total strong {
   font-size: 1.8rem;
+}
+
+.wizard-actions {
+  display: grid;
+  grid-template-columns: 0.9fr 1.1fr;
+  gap: 8px;
 }
 
 @media (max-width: 680px) {
@@ -349,5 +502,31 @@ textarea {
   .form-grid,
   .ball-table {
     grid-template-columns: 1fr;
+  }
+
+  .app-shell {
+    padding: 10px;
+  }
+
+  .wizard-steps {
+    gap: 4px;
+  }
+
+  .wizard-steps button {
+    min-height: 38px;
+    font-size: 0.7rem;
+  }
+
+  .choice-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .choice {
+    min-height: 58px;
+  }
+
+  .sticky-total {
+    margin-inline: -10px;
+    grid-template-columns: 84px minmax(0, 1fr);
   }
 }
