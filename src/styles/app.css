@@ -56,6 +56,13 @@ button.ghost {
   padding: 12px;
 }
 
+.wizard-shell {
+  height: 100dvh;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+}
+
 .topbar {
   display: flex;
   justify-content: space-between;
@@ -270,8 +277,8 @@ textarea {
 
 .wizard-progress {
   display: grid;
-  gap: 8px;
-  margin-bottom: 12px;
+  gap: 6px;
+  margin-bottom: 8px;
 }
 
 .wizard-progress > div:first-child {
@@ -290,7 +297,7 @@ textarea {
 }
 
 .progress-track {
-  height: 8px;
+  height: 6px;
   overflow: hidden;
   border-radius: 999px;
   background: #dfe8e4;
@@ -303,8 +310,10 @@ textarea {
 }
 
 .scoring-step {
-  gap: 14px;
-  padding-bottom: 88px;
+  gap: 10px;
+  padding: 12px;
+  min-height: 0;
+  overflow: auto;
 }
 
 .shot-title {
@@ -315,8 +324,8 @@ textarea {
 }
 
 .shot-title > strong {
-  min-width: 76px;
-  min-height: 48px;
+  min-width: 68px;
+  min-height: 42px;
   display: grid;
   place-items: center;
   border-radius: 8px;
@@ -327,7 +336,7 @@ textarea {
 
 .score-section {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .score-section h3 {
@@ -342,7 +351,7 @@ textarea {
 }
 
 .choice {
-  min-height: 64px;
+  min-height: 54px;
   display: grid;
   place-items: center;
   gap: 2px;
@@ -407,10 +416,10 @@ textarea {
 
 .ball-card {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 10px;
+  padding: 8px;
   background: #fbfcfc;
 }
 
@@ -426,7 +435,7 @@ textarea {
 }
 
 .smooth-score {
-  min-height: 44px;
+  min-height: 40px;
   display: grid;
   place-items: center;
   border-radius: 8px;
@@ -452,31 +461,23 @@ textarea {
 
 .counter {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 42px 42px 42px 72px;
+  grid-template-columns: minmax(0, 1fr) 46px 50px 46px;
   align-items: center;
   gap: 6px;
 }
 
 .counter button {
-  min-height: 38px;
+  min-height: 42px;
   padding: 0;
 }
 
 .counter strong {
+  min-height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: #eef4f1;
   text-align: center;
-}
-
-.mini-choice {
-  min-height: 38px;
-  padding: 0 6px;
-  background: #dfe8e4;
-  color: var(--ink);
-  font-size: 0.78rem;
-}
-
-.mini-choice.active {
-  background: var(--green);
-  color: white;
 }
 
 .ball-table {
@@ -507,8 +508,7 @@ textarea {
 }
 
 .sticky-total {
-  position: sticky;
-  bottom: 0;
+  position: static;
   display: grid;
   grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
   align-items: center;
@@ -533,9 +533,48 @@ textarea {
   gap: 8px;
 }
 
+.save-hint {
+  grid-column: 1 / -1;
+  color: var(--red);
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-align: right;
+}
+
+.incomplete-box {
+  display: grid;
+  gap: 6px;
+  border: 1px solid #edc0c5;
+  border-radius: 8px;
+  background: #fff5f6;
+  padding: 10px;
+}
+
+.incomplete-box span {
+  color: var(--red);
+  font-weight: 800;
+}
+
 @media (max-width: 680px) {
+  body {
+    overflow: hidden;
+  }
+
   .topbar {
     align-items: start;
+  }
+
+  .wizard-shell .topbar {
+    margin-bottom: 6px;
+  }
+
+  .wizard-shell .topbar h1 {
+    font-size: 1.08rem;
+  }
+
+  .wizard-shell .topbar button {
+    min-height: 36px;
+    padding-inline: 10px;
   }
 
   .topbar select {
@@ -564,7 +603,7 @@ textarea {
   }
 
   .wizard-steps {
-    gap: 4px;
+    display: none;
   }
 
   .wizard-steps button {
@@ -578,19 +617,68 @@ textarea {
   }
 
   .choice {
-    min-height: 58px;
+    min-height: 48px;
+    padding: 6px;
+    font-size: 0.92rem;
+  }
+
+  .choice small {
+    font-size: 0.68rem;
+  }
+
+  .scoring-step {
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .score-section {
+    gap: 6px;
+  }
+
+  .score-section h3 {
+    font-size: 1rem;
+  }
+
+  .shot-title > strong {
+    min-width: 58px;
+    min-height: 36px;
+    font-size: 1rem;
+  }
+
+  .ball-card {
+    gap: 5px;
+    padding: 7px;
+  }
+
+  .ball-card strong {
+    font-size: 0.9rem;
   }
 
   .counter {
-    grid-template-columns: minmax(0, 1fr) 40px 40px 40px;
+    grid-template-columns: minmax(0, 1fr) 42px 46px 42px;
   }
 
-  .mini-choice {
-    grid-column: 2 / -1;
+  .counter button,
+  .counter strong {
+    min-height: 38px;
   }
 
   .sticky-total {
     margin-inline: -10px;
     grid-template-columns: 84px minmax(0, 1fr);
+    padding-block: 8px max(8px, env(safe-area-inset-bottom));
+  }
+
+  .sticky-total span {
+    font-size: 0.74rem;
+  }
+
+  .sticky-total strong {
+    font-size: 1.45rem;
+  }
+
+  .wizard-actions button {
+    min-height: 38px;
+    padding-inline: 8px;
   }
 }

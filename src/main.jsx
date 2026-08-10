@@ -22,8 +22,8 @@ const initialTeams = Object.fromEntries(
 const blankShot = (withSmoothness = false) => ({
   target: null,
   distancePassed: null,
-  handCount: withSmoothness ? null : undefined,
-  droppedPartsCount: withSmoothness ? null : undefined,
+  handCount: withSmoothness ? 0 : undefined,
+  droppedPartsCount: withSmoothness ? 0 : undefined,
   autoLaunch: null,
   touches: [null, null],
   results: [null, null],
@@ -278,13 +278,16 @@ function ScoreWizard({ team, existing, onCancel, onSave }) {
   const isLastStep = step === steps.length - 1;
   const currentStepReady = wizardStepReady(activeStep, deviceCount, shots);
   const allShotsReady = Number.isInteger(deviceCount) && shots.every((shot, index) => shotReady(shot, index));
+  const firstIncompleteStep = findFirstIncompleteStep(steps, deviceCount, shots);
+  const reasonMissing = Boolean(existing && !reason.trim());
+  const saveDisabled = !allShotsReady || reasonMissing;
 
   const updateShot = (index, patch) => {
     setShots((current) => current.map((shot, shotIndex) => (shotIndex === index ? { ...shot, ...patch } : shot)));
   };
 
   return (
-    <main className="app-shell">
+    <main className="app-shell wizard-shell">
       <header className="topbar">
         <div>
           <p className="eyebrow">{team.name}</p>
@@ -312,6 +315,8 @@ function ScoreWizard({ team, existing, onCancel, onSave }) {
           deviceCount={deviceCount}
           shots={shots}
           breakdown={breakdown}
+          firstIncompleteStep={firstIncompleteStep}
+          goToStep={setStep}
         />
       ) : null}
 
@@ -323,10 +328,13 @@ function ScoreWizard({ team, existing, onCancel, onSave }) {
         <div className="wizard-actions">
           <button className="ghost" disabled={step === 0} onClick={() => setStep((current) => Math.max(0, current - 1))}>ย้อนกลับ</button>
           {isLastStep ? (
-            <button disabled={!allShotsReady || (existing && !reason.trim())} onClick={() => onSave(team, draft, reason)}>บันทึกคะแนน</button>
+            <button disabled={saveDisabled} onClick={() => onSave(team, draft, reason)}>บันทึกคะแนน</button>
           ) : (
             <button disabled={!currentStepReady} onClick={() => setStep((current) => Math.min(steps.length - 1, current + 1))}>ถัดไป</button>
           )}
+          {isLastStep && saveDisabled ? (
+            <span className="save-hint">{reasonMissing ? "ใส่เหตุผลการแก้คะแนนก่อน" : `ยังไม่ครบ: ${firstIncompleteStep?.step.title}`}</span>
+          ) : null}
         </div>
       </section>
     </main>
@@ -334,12 +342,19 @@ function ScoreWizard({ team, existing, onCancel, onSave }) {
 }
 
 function buildWizardSteps() {
-  const shotSteps = [0, 1, 2].flatMap((shotIndex) => [
-    { type: "shot", shotIndex, phase: "position", shortLabel: `ยิง ${shotIndex + 1}.1`, title: `ยิงครั้งที่ ${shotIndex + 1}: ตำแหน่งลูกบอล` },
-    { type: "shot", shotIndex, phase: "distance", shortLabel: `ยิง ${shotIndex + 1}.2`, title: `ยิงครั้งที่ ${shotIndex + 1}: ระยะยิง` },
-    { type: "shot", shotIndex, phase: "operation", shortLabel: `ยิง ${shotIndex + 1}.3`, title: `ยิงครั้งที่ ${shotIndex + 1}: การทำงาน` },
-    { type: "shot", shotIndex, phase: "score", shortLabel: `ยิง ${shotIndex + 1}.4`, title: `ยิงครั้งที่ ${shotIndex + 1}: คะแนนพื้นที่` },
-  ]);
+  const shotSteps = [0, 1, 2].flatMap((shotIndex) => {
+    const common = [
+      { type: "shot", shotIndex, phase: "position", shortLabel: `${shotIndex + 1}.1`, title: `ยิงครั้งที่ ${shotIndex + 1}: ตำแหน่งลูกบอล` },
+      { type: "shot", shotIndex, phase: "distance", shortLabel: `${shotIndex + 1}.2`, title: `ยิงครั้งที่ ${shotIndex + 1}: ระยะยิง` },
+      { type: "shot", shotIndex, phase: "auto", shortLabel: `${shotIndex + 1}.A`, title: `ยิงครั้งที่ ${shotIndex + 1}: ยิงอัตโนมัติ` },
+      { type: "shot", shotIndex, phase: "touch", shortLabel: `${shotIndex + 1}.T`, title: `ยิงครั้งที่ ${shotIndex + 1}: สัมผัสก่อนเป้าหมาย` },
+      { type: "shot", shotIndex, phase: "score", shortLabel: `${shotIndex + 1}.S`, title: `ยิงครั้งที่ ${shotIndex + 1}: คะแนนพื้นที่` },
+    ];
+    if (shotIndex === 0) {
+      common.splice(2, 0, { type: "shot", shotIndex, phase: "smoothness", shortLabel: "1.3", title: "ยิงครั้งที่ 1: ความราบรื่น" });
+    }
+    return common;
+  });
   return [
     { type: "device", shortLabel: "1", title: "เลือกจำนวนอุปกรณ์" },
     ...shotSteps,
@@ -375,9 +390,16 @@ function wizardStepReady(step, deviceCount, shots) {
   const shot = shots[step.shotIndex];
   if (step.phase === "position") return shot?.target === TARGETS.launcher || shot?.target === TARGETS.point3;
   if (step.phase === "distance") return shot?.distancePassed === true || shot?.distancePassed === false;
-  if (step.phase === "operation") return operationReady(shot, step.shotIndex);
+  if (step.phase === "smoothness") return shot?.distancePassed === false || smoothnessReady(shot);
+  if (step.phase === "auto") return shot?.distancePassed === false || shot?.autoLaunch === true || shot?.autoLaunch === false;
+  if (step.phase === "touch") return shot?.distancePassed === false || shot?.touches?.every((value) => value === true || value === false) || false;
   if (step.phase === "score") return scoreReady(shot);
   return false;
+}
+
+function findFirstIncompleteStep(steps, deviceCount, shots) {
+  const index = steps.findIndex((item) => item.type !== "summary" && !wizardStepReady(item, deviceCount, shots));
+  return index >= 0 ? { index, step: steps[index] } : null;
 }
 
 function shotReady(shot, index) {
@@ -426,7 +448,7 @@ function DeviceStep({ value, onChange }) {
   );
 }
 
-function SummaryStep({ existing, reason, setReason, deviceCount, shots, breakdown }) {
+function SummaryStep({ existing, reason, setReason, deviceCount, shots, breakdown, firstIncompleteStep, goToStep }) {
   return (
     <section className="panel scoring-step">
       <div>
@@ -444,16 +466,24 @@ function SummaryStep({ existing, reason, setReason, deviceCount, shots, breakdow
           const shotBreakdown = breakdown.shots[index];
           return (
             <div key={index}>
-              <span>ยิงครั้งที่ {index + 1} • {shot.target === TARGETS.launcher ? "เครื่องยิง" : "จุดที่ 3"}</span>
+              <span>ยิงครั้งที่ {index + 1} • {shot.target === TARGETS.launcher ? "เครื่องยิง" : shot.target === TARGETS.point3 ? "จุดที่ 3" : "ยังไม่เลือก"}</span>
               <strong>{shotBreakdown.total} คะแนน</strong>
             </div>
           );
         })}
       </div>
+      {firstIncompleteStep ? (
+        <div className="incomplete-box">
+          <strong>ยังบันทึกไม่ได้</strong>
+          <span>ยังไม่ครบ: {firstIncompleteStep.step.title}</span>
+          <button onClick={() => goToStep(firstIncompleteStep.index)}>ไปแก้ขั้นนี้</button>
+        </div>
+      ) : null}
       {existing ? (
         <label>
           เหตุผลการแก้คะแนน
           <textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={3} placeholder="จำเป็นเมื่อแก้คะแนน" />
+          {!reason.trim() ? <span className="danger">ต้องใส่เหตุผลก่อนบันทึกการแก้คะแนน</span> : null}
         </label>
       ) : null}
     </section>
@@ -466,7 +496,9 @@ function ShotStepCard({ index, phase, shot, onChange }) {
   const phaseTitles = {
     position: "ตำแหน่งลูกบอลที่ยิง",
     distance: "ระยะยิง",
-    operation: "การทำงาน",
+    smoothness: "ความราบรื่น",
+    auto: "ยิงอัตโนมัติ",
+    touch: "สัมผัสก่อนเป้าหมาย",
     score: "คะแนนพื้นที่",
   };
 
@@ -500,33 +532,29 @@ function ShotStepCard({ index, phase, shot, onChange }) {
           </ChoiceGrid>
         ) : null}
 
-        {phase === "operation" && shot.distancePassed === false ? <p className="danger">ไม่ผ่านระยะ ข้ามการทำงาน คะแนนรอบนี้ = 0</p> : null}
-        {phase === "operation" && shot.distancePassed !== false ? (
-        <>
-          {index === 0 ? (
+        {phase !== "distance" && shot.distancePassed === false ? <p className="danger">ไม่ผ่านระยะ ข้ามขั้นนี้ คะแนนรอบนี้ = 0</p> : null}
+
+        {phase === "smoothness" && shot.distancePassed !== false ? (
             <div className="smooth-grid">
-              <h3>ความราบรื่น</h3>
               <Counter label="ใช้มือ" value={shot.handCount} onChange={(value) => onChange({ handCount: value })} />
               <Counter label="ชิ้นส่วนหล่น" value={shot.droppedPartsCount} onChange={(value) => onChange({ droppedPartsCount: value })} />
               <strong className={smooth === 20 ? "smooth-score ok" : "smooth-score danger"}>{smooth ?? "-"}/20</strong>
             </div>
-          ) : null}
+        ) : null}
 
-          <div className="sub-section">
-            <h3>ยิงอัตโนมัติ</h3>
+        {phase === "auto" && shot.distancePassed !== false ? (
             <ChoiceGrid columns={2}>
               <button className={shot.autoLaunch === true ? "choice pass active" : "choice pass"} onClick={() => onChange({ autoLaunch: true })}>ออโต้ +2</button>
               <button className={shot.autoLaunch === false ? "choice neutral active" : "choice neutral"} onClick={() => onChange({ autoLaunch: false })}>ไม่ออโต้</button>
             </ChoiceGrid>
-          </div>
+        ) : null}
 
-          <div className="sub-section">
-            <h3>สัมผัสก่อนเป้าหมาย</h3>
+        {phase === "touch" && shot.distancePassed !== false ? (
+          <>
             {[0, 1].map((ballIndex) => (
               <BallTouchChoice key={ballIndex} ballIndex={ballIndex} shot={shot} onChange={onChange} />
             ))}
-          </div>
-        </>
+          </>
         ) : null}
 
         {phase === "score" && shot.distancePassed === false ? <p className="danger">ไม่ผ่านระยะ คะแนนรอบนี้ = 0</p> : null}
@@ -619,7 +647,6 @@ function Counter({ label, value, onChange }) {
       <button onClick={() => onChange(Math.max(0, (value ?? 0) - 1))}>-</button>
       <strong>{selected ? value : "-"}</strong>
       <button onClick={() => onChange((value ?? 0) + 1)}>+</button>
-      <button className={value === 0 ? "mini-choice active" : "mini-choice"} onClick={() => onChange(0)}>0 ครั้ง</button>
     </div>
   );
 }

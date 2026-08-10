@@ -31,6 +31,22 @@ describe("main scoring", () => {
     expect(score.smoothness).toBe(0);
   });
 
+  it("allows confirmed zero smoothness counts to score 20", () => {
+    const score = shotScore(
+      {
+        target: TARGETS.launcher,
+        distancePassed: true,
+        handCount: 0,
+        droppedPartsCount: 0,
+        autoLaunch: false,
+        touches: [true, true],
+        results: [null, null],
+      },
+      0,
+    );
+    expect(score.smoothness).toBe(20);
+  });
+
   it("ignores touched balls and scores launcher targets", () => {
     expect(
       missionScore({
