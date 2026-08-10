@@ -342,19 +342,12 @@ function ScoreWizard({ team, existing, onCancel, onSave }) {
 }
 
 function buildWizardSteps() {
-  const shotSteps = [0, 1, 2].flatMap((shotIndex) => {
-    const common = [
-      { type: "shot", shotIndex, phase: "position", shortLabel: `${shotIndex + 1}.1`, title: `ยิงครั้งที่ ${shotIndex + 1}: ตำแหน่งลูกบอล` },
-      { type: "shot", shotIndex, phase: "distance", shortLabel: `${shotIndex + 1}.2`, title: `ยิงครั้งที่ ${shotIndex + 1}: ระยะยิง` },
-      { type: "shot", shotIndex, phase: "auto", shortLabel: `${shotIndex + 1}.A`, title: `ยิงครั้งที่ ${shotIndex + 1}: ยิงอัตโนมัติ` },
-      { type: "shot", shotIndex, phase: "touch", shortLabel: `${shotIndex + 1}.T`, title: `ยิงครั้งที่ ${shotIndex + 1}: สัมผัสก่อนเป้าหมาย` },
-      { type: "shot", shotIndex, phase: "score", shortLabel: `${shotIndex + 1}.S`, title: `ยิงครั้งที่ ${shotIndex + 1}: คะแนนพื้นที่` },
-    ];
-    if (shotIndex === 0) {
-      common.splice(2, 0, { type: "shot", shotIndex, phase: "smoothness", shortLabel: "1.3", title: "ยิงครั้งที่ 1: ความราบรื่น" });
-    }
-    return common;
-  });
+  const shotSteps = [0, 1, 2].flatMap((shotIndex) => [
+    { type: "shot", shotIndex, phase: "position", shortLabel: `${shotIndex + 1}.1`, title: `ยิงครั้งที่ ${shotIndex + 1}: ตำแหน่งลูกบอล` },
+    { type: "shot", shotIndex, phase: "distance", shortLabel: `${shotIndex + 1}.2`, title: `ยิงครั้งที่ ${shotIndex + 1}: ระยะยิง` },
+    { type: "shot", shotIndex, phase: "operation", shortLabel: `${shotIndex + 1}.3`, title: `ยิงครั้งที่ ${shotIndex + 1}: การทำงาน` },
+    { type: "shot", shotIndex, phase: "score", shortLabel: `${shotIndex + 1}.4`, title: `ยิงครั้งที่ ${shotIndex + 1}: คะแนนพื้นที่` },
+  ]);
   return [
     { type: "device", shortLabel: "1", title: "เลือกจำนวนอุปกรณ์" },
     ...shotSteps,
@@ -390,9 +383,7 @@ function wizardStepReady(step, deviceCount, shots) {
   const shot = shots[step.shotIndex];
   if (step.phase === "position") return shot?.target === TARGETS.launcher || shot?.target === TARGETS.point3;
   if (step.phase === "distance") return shot?.distancePassed === true || shot?.distancePassed === false;
-  if (step.phase === "smoothness") return shot?.distancePassed === false || smoothnessReady(shot);
-  if (step.phase === "auto") return shot?.distancePassed === false || shot?.autoLaunch === true || shot?.autoLaunch === false;
-  if (step.phase === "touch") return shot?.distancePassed === false || shot?.touches?.every((value) => value === true || value === false) || false;
+  if (step.phase === "operation") return operationReady(shot, step.shotIndex);
   if (step.phase === "score") return scoreReady(shot);
   return false;
 }
@@ -496,9 +487,7 @@ function ShotStepCard({ index, phase, shot, onChange }) {
   const phaseTitles = {
     position: "ตำแหน่งลูกบอลที่ยิง",
     distance: "ระยะยิง",
-    smoothness: "ความราบรื่น",
-    auto: "ยิงอัตโนมัติ",
-    touch: "สัมผัสก่อนเป้าหมาย",
+    operation: index === 0 ? "ความราบรื่นและการทำงาน" : "การทำงาน",
     score: "คะแนนพื้นที่",
   };
 
@@ -534,26 +523,31 @@ function ShotStepCard({ index, phase, shot, onChange }) {
 
         {phase !== "distance" && shot.distancePassed === false ? <p className="danger">ไม่ผ่านระยะ ข้ามขั้นนี้ คะแนนรอบนี้ = 0</p> : null}
 
-        {phase === "smoothness" && shot.distancePassed !== false ? (
-            <div className="smooth-grid">
-              <Counter label="ใช้มือ" value={shot.handCount} onChange={(value) => onChange({ handCount: value })} />
-              <Counter label="ชิ้นส่วนหล่น" value={shot.droppedPartsCount} onChange={(value) => onChange({ droppedPartsCount: value })} />
-              <strong className={smooth === 20 ? "smooth-score ok" : "smooth-score danger"}>{smooth ?? "-"}/20</strong>
-            </div>
-        ) : null}
-
-        {phase === "auto" && shot.distancePassed !== false ? (
-            <ChoiceGrid columns={2}>
-              <button className={shot.autoLaunch === true ? "choice pass active" : "choice pass"} onClick={() => onChange({ autoLaunch: true })}>ออโต้ +2</button>
-              <button className={shot.autoLaunch === false ? "choice neutral active" : "choice neutral"} onClick={() => onChange({ autoLaunch: false })}>ไม่ออโต้</button>
-            </ChoiceGrid>
-        ) : null}
-
-        {phase === "touch" && shot.distancePassed !== false ? (
+        {phase === "operation" && shot.distancePassed !== false ? (
           <>
-            {[0, 1].map((ballIndex) => (
-              <BallTouchChoice key={ballIndex} ballIndex={ballIndex} shot={shot} onChange={onChange} />
-            ))}
+            {index === 0 ? (
+              <div className="smooth-grid">
+                <h4>ความราบรื่น</h4>
+                <Counter label="ใช้มือ" value={shot.handCount} onChange={(value) => onChange({ handCount: value })} />
+                <Counter label="ชิ้นส่วนหล่น" value={shot.droppedPartsCount} onChange={(value) => onChange({ droppedPartsCount: value })} />
+                <strong className={smooth === 20 ? "smooth-score ok" : "smooth-score danger"}>{smooth ?? "-"}/20</strong>
+              </div>
+            ) : null}
+
+            <div className="sub-section compact-section">
+              <h4>ยิงอัตโนมัติ</h4>
+              <ChoiceGrid columns={2}>
+                <button className={shot.autoLaunch === true ? "choice pass active" : "choice pass"} onClick={() => onChange({ autoLaunch: true })}>ออโต้ +2</button>
+                <button className={shot.autoLaunch === false ? "choice neutral active" : "choice neutral"} onClick={() => onChange({ autoLaunch: false })}>ไม่ออโต้</button>
+              </ChoiceGrid>
+            </div>
+
+            <div className="sub-section compact-section">
+              <h4>สัมผัสก่อนเป้าหมาย</h4>
+              {[0, 1].map((ballIndex) => (
+                <BallTouchChoice key={ballIndex} ballIndex={ballIndex} shot={shot} onChange={onChange} />
+              ))}
+            </div>
           </>
         ) : null}
 

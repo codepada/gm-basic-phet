@@ -344,6 +344,11 @@ textarea {
   font-size: 1.05rem;
 }
 
+.score-section h4 {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
 .choice-grid {
   display: grid;
   grid-template-columns: repeat(var(--choice-columns), minmax(0, 1fr));
@@ -430,6 +435,11 @@ textarea {
   padding-top: 10px;
 }
 
+.compact-section {
+  gap: 6px;
+  padding-top: 8px;
+}
+
 .ball-card.disabled {
   background: #f8eeee;
 }
@@ -456,7 +466,7 @@ textarea {
 .smooth-grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 8px;
+  gap: 6px;
 }
 
 .counter {
@@ -637,6 +647,10 @@ textarea {
 
   .score-section h3 {
     font-size: 1rem;
+  }
+
+  .score-section h4 {
+    font-size: 0.86rem;
   }
 
   .shot-title > strong {
