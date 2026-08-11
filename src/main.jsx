@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { LEVELS, LEVEL_LABELS, PK_POLICY, TARGETS } from "./core/constants.js";
 import { mainScore, missionScore, smoothnessReady, smoothnessScore } from "./core/scoring.js";
@@ -20,6 +20,25 @@ const initialTeams = Object.fromEntries(
   ]),
 );
 
+const STORAGE_KEYS = {
+  teams: "gm-basic-phet.teamsByLevel",
+  scores: "gm-basic-phet.scores",
+  auditLogs: "gm-basic-phet.auditLogs",
+};
+
+function readStoredValue(key, fallback) {
+  try {
+    const raw = window.localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeStoredValue(key, value) {
+  window.localStorage.setItem(key, JSON.stringify(value));
+}
+
 const blankShot = (withSmoothness = false) => ({
   target: null,
   distancePassed: null,
@@ -33,13 +52,13 @@ const blankShot = (withSmoothness = false) => ({
 function App() {
   const [role, setRole] = useState("admin");
   const [levelId, setLevelId] = useState("sci01");
-  const [teamsByLevel, setTeamsByLevel] = useState(initialTeams);
-  const [scores, setScores] = useState({});
+  const [teamsByLevel, setTeamsByLevel] = useState(() => readStoredValue(STORAGE_KEYS.teams, initialTeams));
+  const [scores, setScores] = useState(() => readStoredValue(STORAGE_KEYS.scores, {}));
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [saveResult, setSaveResult] = useState(null);
   const [awardCutoff, setAwardCutoff] = useState(6);
   const [pkPolicy, setPkPolicy] = useState(PK_POLICY.podiumCutoff);
-  const [auditLogs, setAuditLogs] = useState([]);
+  const [auditLogs, setAuditLogs] = useState(() => readStoredValue(STORAGE_KEYS.auditLogs, []));
 
   const teams = teamsByLevel[levelId] || [];
   const enrichedTeams = teams.map((team) => ({
@@ -47,6 +66,18 @@ function App() {
     mainTotal: scores[team.id]?.breakdown?.total ?? team.mainTotal,
     status: scores[team.id] ? "main-complete" : team.status,
   }));
+
+  useEffect(() => {
+    writeStoredValue(STORAGE_KEYS.teams, teamsByLevel);
+  }, [teamsByLevel]);
+
+  useEffect(() => {
+    writeStoredValue(STORAGE_KEYS.scores, scores);
+  }, [scores]);
+
+  useEffect(() => {
+    writeStoredValue(STORAGE_KEYS.auditLogs, auditLogs);
+  }, [auditLogs]);
 
   const saveMainScore = (team, draft, reason = "") => {
     const before = scores[team.id] || null;
