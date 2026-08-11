@@ -656,6 +656,7 @@ function JudgeAssignmentPanel({ levelId, teams, assignments, onSave }) {
   };
 
   const handleSave = async () => {
+    if (!window.confirm("ยืนยันบันทึกการมอบหมายกรรมการหรือไม่?")) return;
     const nextAssignments = { ...assignments, ...draft };
     await onSave(nextAssignments);
     setStatus("บันทึกการมอบหมายแล้ว");
@@ -767,6 +768,7 @@ function TeamSetupPanel({ levelId, teams, status, onSave }) {
   };
 
   const handleSave = async () => {
+    if (!window.confirm(`ยืนยันบันทึกรายชื่อ ${count} ทีมหรือไม่?`)) return;
     setIsSaving(true);
     setError("");
     try {
@@ -848,6 +850,7 @@ function ScoreWizard({ team, existing, onCancel, onSave }) {
   };
 
   const handleSave = async () => {
+    if (!window.confirm(`ยืนยันบันทึกคะแนน ${team.teamName || team.name} หรือไม่?`)) return;
     setIsSaving(true);
     setSaveError("");
     try {
