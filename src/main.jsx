@@ -68,7 +68,7 @@ function App() {
   const [pkPolicy, setPkPolicy] = useState(PK_POLICY.podiumCutoff);
   const [auditLogs, setAuditLogs] = useState(() => readStoredValue(STORAGE_KEYS.auditLogs, []));
   const [firebaseUser, setFirebaseUser] = useState(null);
-  const [syncStatus, setSyncStatus] = useState(isFirebaseConfigured ? "กำลังต่อ Firebase..." : "โหมดทดสอบในเครื่อง");
+  const [syncStatus, setSyncStatus] = useState(isFirebaseConfigured ? "กำลังต่อ Firebase..." : "ยังไม่เชื่อมฐานข้อมูลกลาง");
   const [syncError, setSyncError] = useState("");
   const [setupStatus, setSetupStatus] = useState("");
 
@@ -306,7 +306,7 @@ function App() {
         </div>
         <button className="ghost topbar-logout" onClick={handleLogout}>ออก</button>
       </header>
-      <SyncBanner status={syncStatus} error={syncError} />
+      {isFirebaseConfigured || syncError ? <SyncBanner status={syncStatus} error={syncError} /> : null}
 
       {role === "admin" ? <LevelTabs levelId={levelId} setLevelId={setLevelId} /> : null}
 
@@ -463,18 +463,39 @@ function AdminPage({ levelId, teams, scores, auditLogs, isCloudReady, syncStatus
 
   return (
     <section className="stack">
-      {!isCloudReady ? (
-        <section className="panel cloud-warning">
-          <strong>Admin จะเห็นคะแนนข้ามเครื่องเมื่อ Firebase พร้อมเท่านั้น</strong>
-          <span>สถานะตอนนี้: {syncStatus} คะแนนที่กรรมการบันทึกจากมือถืออื่นจะยังไม่มาแสดงในหน้า Admin จนกว่าจะตั้งค่า Firebase บน GitHub Pages</span>
-        </section>
-      ) : null}
-
       <div className="summary-row">
         <Metric label="ทีม" value={teams.length} />
         <Metric label="จบรอบแรก" value={completed.length} />
         <Metric label="ยังไม่จบ" value={teams.length - completed.length} />
       </div>
+
+      <TeamSetupPanel levelId={levelId} teams={teams} status={setupStatus} onSave={onSaveTeamSetup} />
+
+      <section className="panel">
+        <h2>{LEVEL_LABELS[levelId]} Main Summary</h2>
+        {completed.length === 0 ? (
+          <p className="muted">ยังไม่มีคะแนนที่บันทึกในระดับนี้</p>
+        ) : completed.length !== teams.length ? (
+          <p className="muted">มีคะแนนแล้ว {completed.length}/{teams.length} ทีม</p>
+        ) : (
+          <p className="ok">ครบแล้ว ครูกดเริ่ม PK ได้</p>
+        )}
+        <div className="ranking">
+          {mainRanking.map((team, index) => (
+            <div key={team.id}>
+              <span>{index + 1}. {team.name}</span>
+              <strong>{team.mainTotal ?? "-"} คะแนน</strong>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {!isCloudReady ? (
+        <section className="panel cloud-warning">
+          <strong>ยังไม่ได้เชื่อมฐานข้อมูลกลาง</strong>
+          <span>Admin หน้านี้ดูข้อมูลที่อยู่ในเครื่อง/เบราว์เซอร์นี้ได้ แต่จะยังไม่เห็นคะแนนจากมือถือเครื่องอื่นจนกว่าจะใส่ค่า Firebase ให้ GitHub Pages</span>
+        </section>
+      ) : null}
 
       <section className="panel">
         <h2>ตั้งค่า PK</h2>
@@ -494,21 +515,6 @@ function AdminPage({ levelId, teams, scores, auditLogs, isCloudReady, syncStatus
               <option value={PK_POLICY.exactRanking}>Exact Ranking 1-N</option>
             </select>
           </label>
-        </div>
-      </section>
-
-      <TeamSetupPanel levelId={levelId} teams={teams} status={setupStatus} onSave={onSaveTeamSetup} />
-
-      <section className="panel">
-        <h2>{LEVEL_LABELS[levelId]} Main Summary</h2>
-        {completed.length !== teams.length ? <p className="muted">ยังไม่ครบทุกทีม ห้ามเริ่ม PK</p> : <p className="ok">ครบแล้ว ครูกดเริ่ม PK ได้</p>}
-        <div className="ranking">
-          {mainRanking.map((team, index) => (
-            <div key={team.id}>
-              <span>{index + 1}. {team.name}</span>
-              <strong>{team.mainTotal ?? "-"} คะแนน</strong>
-            </div>
-          ))}
         </div>
       </section>
 
