@@ -60,6 +60,18 @@ button.danger-button {
   padding: 12px;
 }
 
+.app-shell.level-theme-el {
+  background: #fff1f7;
+}
+
+.app-shell.level-theme-jh {
+  background: #effbeb;
+}
+
+.app-shell.level-theme-sh {
+  background: #eef8ff;
+}
+
 .login-shell {
   width: min(460px, 100%);
   min-height: 100dvh;

@@ -434,6 +434,7 @@ function App() {
     return (
       <SaveCompletePage
         result={saveResult}
+        levelId={levelId}
         onNext={() => {
           setSelectedTeam(saveResult.nextTeam);
           setSaveResult(null);
@@ -444,14 +445,14 @@ function App() {
   }
 
   if (selectedTeam) {
-    return <ScoreWizard key={selectedTeam.id} team={selectedTeam} existing={scores[selectedTeam.id]} onCancel={() => setSelectedTeam(null)} onSave={saveMainScore} />;
+    return <ScoreWizard key={selectedTeam.id} levelId={levelId} team={selectedTeam} existing={scores[selectedTeam.id]} onCancel={() => setSelectedTeam(null)} onSave={saveMainScore} />;
   }
 
   const currentJudgeAssignment = role === ADMIN_ID ? null : settings.judgeAssignments?.[role];
   const judgeName = currentJudgeAssignment?.judgeName?.trim();
 
   return (
-    <main className="app-shell">
+    <main className={`app-shell level-theme-${levelId}`}>
       <header className="topbar">
         <div>
           <p className="eyebrow">{role === ADMIN_ID ? "Green Mech Scoring" : `ID ${role.toUpperCase()}`}</p>
@@ -550,9 +551,9 @@ function SyncBanner({ status, error }) {
   );
 }
 
-function SaveCompletePage({ result, onNext, onList }) {
+function SaveCompletePage({ result, levelId, onNext, onList }) {
   return (
-    <main className="app-shell save-complete-shell">
+    <main className={`app-shell save-complete-shell level-theme-${levelId}`}>
       <section className="panel save-complete-card">
         <div>
           <p className="eyebrow">บันทึกสำเร็จ</p>
@@ -1190,7 +1191,7 @@ function TeamSetupPanel({ levelId, teams, status, onSave }) {
   );
 }
 
-function ScoreWizard({ team, existing, onCancel, onSave }) {
+function ScoreWizard({ levelId, team, existing, onCancel, onSave }) {
   const [deviceCount, setDeviceCount] = useState(existing?.deviceCount ?? null);
   const [shots, setShots] = useState(existing?.shots ?? [blankShot(true), blankShot(false), blankShot(false)]);
   const [reason, setReason] = useState("");
@@ -1224,7 +1225,7 @@ function ScoreWizard({ team, existing, onCancel, onSave }) {
   };
 
   return (
-    <main className="app-shell wizard-shell">
+    <main className={`app-shell wizard-shell level-theme-${levelId}`}>
       <header className="topbar">
         <div>
           <p className="eyebrow team-heading">{team.teamName || team.name}</p>
