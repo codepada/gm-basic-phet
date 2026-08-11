@@ -19,8 +19,8 @@ export const isFirebaseConfigured = Boolean(
     && firebaseConfig.appId,
 );
 
-export const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-export const storage = getStorage(app);
+export const app = isFirebaseConfigured ? initializeApp(firebaseConfig) : null;
+export const auth = app ? getAuth(app) : null;
+export const db = app ? getFirestore(app) : null;
+export const storage = app ? getStorage(app) : null;
 export const competitionId = import.meta.env.VITE_COMPETITION_ID || "green-mech-2026";
