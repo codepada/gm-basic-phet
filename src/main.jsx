@@ -280,6 +280,19 @@ function App() {
       : (teamsByLevel[levelId] || []).filter((team) => teamWithinAssignment(team, settings.judgeAssignments?.[role]));
     const nextTeam = nextUnscoredTeam(currentTeams, nextScores, team.id);
 
+    if (isFirebaseConfigured) {
+      setSyncStatus("กำลัง sync Firebase...");
+      setSyncError("");
+      try {
+        await submitMainScore(levelId, team.id, after, { uid: role, role }, reason);
+        setSyncStatus("sync Firebase สำเร็จ");
+      } catch (error) {
+        setSyncStatus("sync Firebase ไม่สำเร็จ");
+        setSyncError(error.message);
+        throw new Error(`บันทึก Firebase ไม่สำเร็จ: ${error.message}`);
+      }
+    }
+
     setScores(nextScores);
     setTeamsByLevel((current) => ({
       ...current,
@@ -301,18 +314,6 @@ function App() {
     ]);
     setSelectedTeam(null);
     setSaveResult({ savedTeam: { ...team, name: fullTeamName(team) }, nextTeam: nextTeam ? { ...nextTeam, name: fullTeamName(nextTeam) } : null, total: breakdown.total });
-
-    if (isFirebaseConfigured) {
-      setSyncStatus("กำลัง sync Firebase...");
-      setSyncError("");
-      try {
-        await submitMainScore(levelId, team.id, after, { uid: role, role }, reason);
-        setSyncStatus("sync Firebase สำเร็จ");
-      } catch (error) {
-        setSyncStatus("บันทึกในเครื่องแล้ว แต่ sync Firebase ไม่สำเร็จ");
-        setSyncError(error.message);
-      }
-    }
   };
 
   const saveTeamsFromAdmin = async (entries) => {
