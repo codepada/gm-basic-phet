@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { TARGETS, PK_POLICY } from "../src/core/constants.js";
 import { mainScore, missionScore, pkScore, shotScore, smoothnessScore } from "../src/core/scoring.js";
-import { pkNeededForMain } from "../src/core/pk.js";
+import { pkNeededForMain, splitPkGroupAfterRound } from "../src/core/pk.js";
 
 describe("main scoring", () => {
   it("calculates smoothness with hand and dropped part penalties", () => {
@@ -100,5 +100,34 @@ describe("PK policy", () => {
       ["a", "b"],
       ["f", "g"],
     ]);
+  });
+
+  it("can track a tie that continues until PK round 5", () => {
+    let activeTeamIds = ["a", "b", "c"];
+    const attempts = [];
+    const badges = {};
+    const rounds = [
+      { round: 1, scores: { a: 10, b: 10, c: 6 } },
+      { round: 2, scores: { a: 8, b: 8 } },
+      { round: 3, scores: { a: 7, b: 7 } },
+      { round: 4, scores: { a: 5, b: 5 } },
+      { round: 5, scores: { a: 9, b: 3 } },
+    ];
+
+    rounds.forEach(({ round, scores }) => {
+      activeTeamIds.forEach((teamId) => {
+        attempts.push({ sessionId: "pk-main-1", pkRound: round, teamId, score: scores[teamId] });
+        badges[teamId] = [...(badges[teamId] || []), round];
+      });
+      const result = splitPkGroupAfterRound({ id: "pk-main-1", groupTeamIds: activeTeamIds, pkRound: round }, attempts);
+      activeTeamIds = result.tiedGroups[0]?.teamIds || [];
+    });
+
+    expect(badges).toEqual({
+      a: [1, 2, 3, 4, 5],
+      b: [1, 2, 3, 4, 5],
+      c: [1],
+    });
+    expect(activeTeamIds).toEqual([]);
   });
 });

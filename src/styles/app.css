@@ -443,6 +443,25 @@ h2 {
   font-weight: 900;
 }
 
+.pk-round-team {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pk-round-team input {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+}
+
+.pk-round-team span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .pk-badges {
   display: inline-flex;
   flex-wrap: wrap;

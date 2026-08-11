@@ -689,12 +689,18 @@ function AdminPage({ levelId, teams, scores, auditLogs, settings, isCloudReady, 
   const [adminTab, setAdminTab] = useState("dashboard");
   const [pkSettingsStatus, setPkSettingsStatus] = useState("");
   const [resetStatus, setResetStatus] = useState("");
+  const [selectedPkTeamIds, setSelectedPkTeamIds] = useState([]);
   const completed = teams.filter((team) => scores[team.id]);
   const mainRanking = sortTeamsForResults(teams);
   const pkNeeds = completed.length === teams.length ? pkNeededForMain(completed, awardCutoff, pkPolicy) : [];
   const pkTeamIds = new Set(pkNeeds.flatMap((need) => need.teamIds));
   const pkTeams = teams.filter((team) => pkTeamIds.has(team.id)).sort((a, b) => a.order - b.order);
+  const selectedPkTeams = pkTeams.filter((team) => selectedPkTeamIds.includes(team.id));
   const pkRounds = settings.pkRoundsByLevel?.[levelId] || {};
+
+  useEffect(() => {
+    setSelectedPkTeamIds(pkTeams.map((team) => team.id));
+  }, [levelId, pkTeams.map((team) => team.id).join("|")]);
 
   const savePkSettings = async () => {
     if (!window.confirm(`ยืนยันบันทึกตั้งค่า PK ของ ${LEVEL_LABELS[levelId]} หรือไม่?`)) return;
@@ -717,11 +723,11 @@ function AdminPage({ levelId, teams, scores, auditLogs, settings, isCloudReady, 
   };
 
   const markCurrentPkRound = async () => {
-    if (!pkTeams.length) return;
-    const nextRound = Math.max(0, ...pkTeams.flatMap((team) => (pkRounds[team.id] || []).map(Number).filter(Boolean))) + 1;
-    if (!window.confirm(`ยืนยันบันทึกทีมชุดนี้เป็น PK${nextRound} หรือไม่?`)) return;
+    if (!selectedPkTeams.length) return;
+    const nextRound = Math.max(0, ...selectedPkTeams.flatMap((team) => (pkRounds[team.id] || []).map(Number).filter(Boolean))) + 1;
+    if (!window.confirm(`ยืนยันบันทึก ${selectedPkTeams.length} ทีมนี้เป็น PK${nextRound} หรือไม่?`)) return;
     const nextLevelRounds = { ...pkRounds };
-    pkTeams.forEach((team) => {
+    selectedPkTeams.forEach((team) => {
       nextLevelRounds[team.id] = [...new Set([...(nextLevelRounds[team.id] || []), nextRound])].sort((a, b) => a - b);
     });
     await onSaveSettings({
@@ -776,11 +782,13 @@ function AdminPage({ levelId, teams, scores, auditLogs, settings, isCloudReady, 
             pkNeeds={pkNeeds}
             pkTeams={pkTeams}
             pkRounds={pkRounds}
+            selectedTeamIds={selectedPkTeamIds}
+            onSelectedTeamIdsChange={setSelectedPkTeamIds}
             onMarkRound={markCurrentPkRound}
           />
           <PkAssignmentPanel
             levelId={levelId}
-            pkTeams={pkTeams}
+            pkTeams={selectedPkTeams}
             pkNeeds={pkNeeds}
             allTeamsComplete={completed.length === teams.length}
             assignments={settings.judgeAssignments || {}}
@@ -963,7 +971,16 @@ function PkSettingsPanel({ levelId, awardCutoff, setAwardCutoff, pkPolicy, setPk
   );
 }
 
-function PkStatusPanel({ allTeamsComplete, pkNeeds, pkTeams, pkRounds, onMarkRound }) {
+function PkStatusPanel({ allTeamsComplete, pkNeeds, pkTeams, pkRounds, selectedTeamIds, onSelectedTeamIdsChange, onMarkRound }) {
+  const selected = new Set(selectedTeamIds);
+  const toggleTeam = (teamId) => {
+    onSelectedTeamIdsChange((current) => (
+      current.includes(teamId)
+        ? current.filter((id) => id !== teamId)
+        : [...current, teamId]
+    ));
+  };
+
   return (
     <section className="panel">
       <div>
@@ -986,15 +1003,18 @@ function PkStatusPanel({ allTeamsComplete, pkNeeds, pkTeams, pkRounds, onMarkRou
         <div className="pk-result-list">
           {pkTeams.map((team) => (
             <div key={team.id}>
-              <span>{team.order}. {team.teamName || team.name}</span>
+              <label className="pk-round-team">
+                <input type="checkbox" checked={selected.has(team.id)} onChange={() => toggleTeam(team.id)} />
+                <span>{team.order}. {team.teamName || team.name}</span>
+              </label>
               <PkBadges labels={pkRoundLabels(pkRounds, team.id)} />
             </div>
           ))}
         </div>
       ) : null}
       <div className="setup-actions">
-        <p className="muted">กดบันทึกรอบเมื่อทีมชุดนี้ต้องยิง PK รอบใหม่ เช่น PK1 แล้วถ้ายังเสมออีกให้กดอีกครั้งเป็น PK2</p>
-        <button disabled={!pkTeams.length} onClick={onMarkRound}>บันทึกรอบ PK ของทีมชุดนี้</button>
+        <p className="muted">ติ๊กเฉพาะทีมที่ต้องยิงรอบนี้ เช่น PK1 เลือกทุกทีมที่เสมอ ถ้ายังเสมอต่อ PK2 ให้เหลือเฉพาะทีมที่ยังเสมอ</p>
+        <button disabled={!selectedTeamIds.length} onClick={onMarkRound}>บันทึกรอบ PK ของทีมที่ติ๊กไว้</button>
       </div>
     </section>
   );
