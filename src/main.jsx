@@ -243,6 +243,8 @@ function App() {
           teams={enrichedTeams}
           scores={scores}
           auditLogs={auditLogs}
+          isCloudReady={isFirebaseConfigured && syncStatus === "ต่อ Firebase แล้ว"}
+          syncStatus={syncStatus}
           awardCutoff={awardCutoff}
           setAwardCutoff={setAwardCutoff}
           pkPolicy={pkPolicy}
@@ -329,7 +331,7 @@ function JudgePage({ teams, scores, onScore }) {
   );
 }
 
-function AdminPage({ levelId, teams, scores, auditLogs, awardCutoff, setAwardCutoff, pkPolicy, setPkPolicy, setTeamsByLevel }) {
+function AdminPage({ levelId, teams, scores, auditLogs, isCloudReady, syncStatus, awardCutoff, setAwardCutoff, pkPolicy, setPkPolicy, setTeamsByLevel }) {
   const completed = teams.filter((team) => scores[team.id]);
   const mainRanking = [...teams].sort((a, b) => (b.mainTotal ?? -1) - (a.mainTotal ?? -1));
   const pkNeeds = completed.length === teams.length ? pkNeededForMain(completed, awardCutoff, pkPolicy) : [];
@@ -349,6 +351,13 @@ function AdminPage({ levelId, teams, scores, auditLogs, awardCutoff, setAwardCut
 
   return (
     <section className="stack">
+      {!isCloudReady ? (
+        <section className="panel cloud-warning">
+          <strong>Admin จะเห็นคะแนนข้ามเครื่องเมื่อ Firebase พร้อมเท่านั้น</strong>
+          <span>สถานะตอนนี้: {syncStatus} คะแนนที่กรรมการบันทึกจากมือถืออื่นจะยังไม่มาแสดงในหน้า Admin จนกว่าจะตั้งค่า Firebase บน GitHub Pages</span>
+        </section>
+      ) : null}
+
       <div className="summary-row">
         <Metric label="ทีม" value={teams.length} />
         <Metric label="จบรอบแรก" value={completed.length} />
@@ -474,7 +483,7 @@ function ScoreWizard({ team, existing, onCancel, onSave }) {
     <main className="app-shell wizard-shell">
       <header className="topbar">
         <div>
-          <p className="eyebrow">{team.name}</p>
+          <p className="eyebrow team-heading">{team.name}</p>
           <h1>ให้คะแนนรอบแรก</h1>
         </div>
         <button className="ghost" onClick={onCancel}>ปิด</button>

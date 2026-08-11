@@ -89,6 +89,16 @@ h2 {
   font-size: 0.78rem;
 }
 
+.team-heading {
+  max-width: min(68vw, 520px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink);
+  font-size: clamp(1.1rem, 5vw, 1.55rem);
+  line-height: 1.08;
+}
+
 .tabs,
 .segmented {
   display: grid;
@@ -119,6 +129,21 @@ h2 {
   color: inherit;
   font-size: 0.78rem;
   font-weight: 800;
+}
+
+.cloud-warning {
+  border-color: #f0cf90;
+  background: #fff8e8;
+  color: #6d4309;
+}
+
+.cloud-warning strong {
+  font-size: 1rem;
+}
+
+.cloud-warning span {
+  font-weight: 800;
+  line-height: 1.35;
 }
 
 .tabs button,
@@ -797,6 +822,11 @@ textarea {
 
   .wizard-shell .eyebrow {
     font-size: 0.7rem;
+  }
+
+  .wizard-shell .team-heading {
+    max-width: 68vw;
+    font-size: clamp(1.05rem, 5.6vw, 1.35rem);
   }
 
   .topbar select {
