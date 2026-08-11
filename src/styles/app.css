@@ -388,6 +388,27 @@ h2 {
   background: #f3f5f4;
 }
 
+.pk-need-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.pk-need-list div {
+  display: grid;
+  gap: 3px;
+  border: 1px solid #b9dec8;
+  border-radius: 8px;
+  background: #edf8f1;
+  padding: 10px;
+}
+
+.pk-need-list span {
+  color: var(--green-dark);
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
 .pk-judge-head {
   display: grid;
   grid-template-columns: 80px minmax(0, 1fr);
@@ -453,6 +474,16 @@ h2 {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.print-note {
+  margin: 0;
+  border: 1px solid #b9dec8;
+  border-radius: 8px;
+  background: #edf8f1;
+  color: var(--green-dark);
+  padding: 10px;
+  font-weight: 900;
+}
+
 .results-table {
   width: 100%;
   border-collapse: collapse;
@@ -468,6 +499,11 @@ h2 {
 
 .results-table th {
   background: #e6efeb;
+}
+
+.unscored-row {
+  color: var(--muted);
+  background: #f7f9f8;
 }
 
 .team-list {

@@ -92,6 +92,17 @@ function pkOrdersForJudge(settings, judgeId) {
   return legacyOrder ? [Number(legacyOrder)] : [];
 }
 
+function sortTeamsForResults(teams) {
+  return [...teams].sort((a, b) => {
+    const aScored = Number.isFinite(a.mainTotal);
+    const bScored = Number.isFinite(b.mainTotal);
+    if (aScored && bScored) return b.mainTotal - a.mainTotal || a.order - b.order;
+    if (aScored) return -1;
+    if (bScored) return 1;
+    return a.order - b.order;
+  });
+}
+
 function App() {
   const [session, setSession] = useState(() => {
     const stored = readStoredValue(STORAGE_KEYS.session, null);
@@ -536,8 +547,10 @@ function JudgePage({ teams, scores, assignment, pkOrders, onScore }) {
 function AdminPage({ levelId, teams, scores, auditLogs, settings, isCloudReady, syncStatus, setupStatus, awardCutoff, setAwardCutoff, pkPolicy, setPkPolicy, onSaveTeamSetup, onSaveSettings }) {
   const [adminTab, setAdminTab] = useState("dashboard");
   const completed = teams.filter((team) => scores[team.id]);
-  const mainRanking = [...teams].sort((a, b) => (b.mainTotal ?? -1) - (a.mainTotal ?? -1));
+  const mainRanking = sortTeamsForResults(teams);
   const pkNeeds = completed.length === teams.length ? pkNeededForMain(completed, awardCutoff, pkPolicy) : [];
+  const pkTeamIds = new Set(pkNeeds.flatMap((need) => need.teamIds));
+  const pkTeams = teams.filter((team) => pkTeamIds.has(team.id)).sort((a, b) => a.order - b.order);
 
   return (
     <section className="stack">
@@ -569,7 +582,9 @@ function AdminPage({ levelId, teams, scores, auditLogs, settings, isCloudReady, 
       {adminTab === "pk" ? (
         <PkAssignmentPanel
           levelId={levelId}
-          teams={teams}
+          pkTeams={pkTeams}
+          pkNeeds={pkNeeds}
+          allTeamsComplete={completed.length === teams.length}
           assignments={settings.judgeAssignments || {}}
           pkAssignments={settings.pkAssignments || {}}
           onSave={(pkAssignments) => onSaveSettings({ pkAssignments })}
@@ -725,10 +740,11 @@ function JudgeAssignmentPanel({ levelId, teams, assignments, onSave }) {
   );
 }
 
-function PkAssignmentPanel({ levelId, teams, assignments, pkAssignments, onSave }) {
+function PkAssignmentPanel({ levelId, pkTeams, pkNeeds, allTeamsComplete, assignments, pkAssignments, onSave }) {
   const judgeIds = JUDGE_IDS_BY_LEVEL[levelId] || [];
   const [draft, setDraft] = useState(() => ({ ...pkAssignments }));
   const [status, setStatus] = useState("");
+  const pkOrders = useMemo(() => new Set(pkTeams.map((team) => team.order)), [pkTeams]);
 
   useEffect(() => {
     const next = { ...pkAssignments };
@@ -737,9 +753,10 @@ function PkAssignmentPanel({ levelId, teams, assignments, pkAssignments, onSave 
         next[judgeId] = [Number(assignments[judgeId].pkTeamOrder)];
       }
       if (!Array.isArray(next[judgeId])) next[judgeId] = [];
+      next[judgeId] = next[judgeId].map(Number).filter((order) => pkOrders.has(order));
     });
     setDraft(next);
-  }, [assignments, judgeIds, pkAssignments]);
+  }, [assignments, judgeIds, pkAssignments, pkOrders]);
 
   const toggleTeam = (judgeId, order) => {
     setDraft((current) => {
@@ -762,6 +779,18 @@ function PkAssignmentPanel({ levelId, teams, assignments, pkAssignments, onSave 
         <p className="eyebrow">PK Assignment</p>
         <h2>มอบหมายทีม PK ให้กรรมการ</h2>
       </div>
+      {!allTeamsComplete ? <p className="muted">ยังให้คะแนนรอบแรกไม่ครบทุกทีม ระบบจะแสดงทีม PK หลังคะแนนครบ</p> : null}
+      {allTeamsComplete && !pkTeams.length ? <p className="ok">ไม่พบทีมที่ต้อง PK ตาม policy ปัจจุบัน</p> : null}
+      {pkNeeds.length ? (
+        <div className="pk-need-list">
+          {pkNeeds.map((need) => (
+            <div key={`${need.score}-${need.teamIds.join("-")}`}>
+              <strong>อันดับ {need.placeStart}-{need.placeEnd}</strong>
+              <span>Main {need.score} • {need.teamIds.length} ทีม</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
       <div className="pk-assignment-list">
         {judgeIds.map((judgeId) => {
           const assignment = assignments[judgeId] || {};
@@ -774,12 +803,13 @@ function PkAssignmentPanel({ levelId, teams, assignments, pkAssignments, onSave 
                 <span>{assignment.judgeName || "ยังไม่ใส่ชื่อกรรมการ"}</span>
               </div>
               <div className="pk-team-grid">
-                {teams.map((team) => (
+                {pkTeams.map((team) => (
                   <label key={`${judgeId}-${team.id}`} className={selected.has(team.order) ? "pk-team-chip active" : "pk-team-chip"}>
                     <input disabled={!enabled} type="checkbox" checked={selected.has(team.order)} onChange={() => toggleTeam(judgeId, team.order)} />
                     <span>{team.order}. {team.teamName || team.name}</span>
                   </label>
                 ))}
+                {!pkTeams.length ? <p className="muted">ยังไม่มีทีมให้เลือก</p> : null}
               </div>
             </article>
           );
@@ -795,6 +825,7 @@ function PkAssignmentPanel({ levelId, teams, assignments, pkAssignments, onSave 
 
 function PrintResultsPage({ levelId, teams, scores }) {
   const completed = teams.filter((team) => scores[team.id]);
+  let scoredRank = 0;
   return (
     <section className="panel print-results">
       <div className="print-actions">
@@ -809,6 +840,7 @@ function PrintResultsPage({ levelId, teams, scores }) {
         <Metric label="มีคะแนน" value={completed.length} />
         <Metric label="รอคะแนน" value={teams.length - completed.length} />
       </div>
+      <p className="print-note">ตารางนี้เรียงคะแนนสูงสุดไว้ด้านบน ทีมที่ยังไม่มีคะแนนจะแสดงท้ายตารางและยังไม่ถูกจัดอันดับ</p>
       <table className="results-table">
         <thead>
           <tr>
@@ -820,15 +852,19 @@ function PrintResultsPage({ levelId, teams, scores }) {
           </tr>
         </thead>
         <tbody>
-          {teams.map((team, index) => (
-            <tr key={team.id}>
-              <td>{index + 1}</td>
-              <td>{team.order}</td>
-              <td>{team.school || "-"}</td>
-              <td>{team.teamName || team.name}</td>
-              <td>{team.mainTotal ?? "-"}</td>
-            </tr>
-          ))}
+          {teams.map((team) => {
+            const hasScore = Number.isFinite(team.mainTotal);
+            if (hasScore) scoredRank += 1;
+            return (
+              <tr key={team.id} className={hasScore ? "" : "unscored-row"}>
+                <td>{hasScore ? scoredRank : "-"}</td>
+                <td>{team.order}</td>
+                <td>{team.school || "-"}</td>
+                <td>{team.teamName || team.name}</td>
+                <td>{team.mainTotal ?? "-"}</td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </section>
