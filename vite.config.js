@@ -1,9 +1,9 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-const isGitHubActions = Boolean(globalThis.process?.env?.GITHUB_ACTIONS);
+const basePath = globalThis.process?.env?.VITE_BASE_PATH || "/";
 
 export default defineConfig({
-  base: isGitHubActions ? "/gm-basic-phet/" : "/",
+  base: basePath,
   plugins: [react()],
 });

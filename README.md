@@ -35,8 +35,8 @@ For online testing before the login system is finished:
    - `FIREBASE_TOKEN` for manually deploying Firestore rules
 3. Optional GitHub repository variable:
    - `VITE_COMPETITION_ID` defaults to `green-mech-2026`
-4. In GitHub repository settings, enable Pages with source `GitHub Actions`.
-5. Push to `main`; the site deploys from `.github/workflows/pages.yml`.
+4. For Firebase Hosting, push to `main`; the site deploys from `.github/workflows/firebase-hosting.yml`.
+5. For GitHub Pages, the repo or GitHub plan must support Pages. Enable Pages with source `GitHub Actions`; the workflow is `.github/workflows/pages.yml`.
 
 The temporary Firestore rules allow signed-in anonymous users to read/write for testing. Lock these rules before real competition use.
 
