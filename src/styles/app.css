@@ -1106,10 +1106,6 @@ textarea {
 }
 
 @media (max-width: 680px) {
-  body {
-    overflow: hidden;
-  }
-
   .topbar {
     align-items: start;
   }
