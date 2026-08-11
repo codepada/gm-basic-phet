@@ -56,6 +56,42 @@ button.ghost {
   padding: 12px;
 }
 
+.login-shell {
+  width: min(460px, 100%);
+  min-height: 100dvh;
+  margin: 0 auto;
+  display: grid;
+  align-items: center;
+  padding: 18px;
+}
+
+.login-card {
+  gap: 18px;
+  padding: 18px;
+}
+
+.login-card h1 {
+  margin: 0;
+  font-size: clamp(2rem, 10vw, 3rem);
+}
+
+.login-card select,
+.login-card input {
+  min-height: 56px;
+  font-size: 1.2rem;
+  font-weight: 900;
+}
+
+.login-card button {
+  min-height: 60px;
+  font-size: 1.15rem;
+}
+
+.login-error {
+  margin: 0;
+  font-weight: 900;
+}
+
 .wizard-shell {
   height: 100dvh;
   height: 100svh;
@@ -81,6 +117,10 @@ h2 {
 
 .topbar h1 {
   font-size: clamp(1.35rem, 6vw, 2rem);
+}
+
+.topbar-logout {
+  min-width: 64px;
 }
 
 .eyebrow {

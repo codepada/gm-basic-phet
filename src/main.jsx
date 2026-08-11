@@ -27,7 +27,11 @@ const STORAGE_KEYS = {
   teams: "gm-basic-phet.teamsByLevel",
   scores: "gm-basic-phet.scores",
   auditLogs: "gm-basic-phet.auditLogs",
+  session: "gm-basic-phet.session",
 };
+
+const LOGIN_IDS = ["admin", "sci01", "sci02", "sci03"];
+const TEST_PASSWORD = "1234";
 
 function readStoredValue(key, fallback) {
   try {
@@ -53,8 +57,9 @@ const blankShot = (withSmoothness = false) => ({
 });
 
 function App() {
-  const [role, setRole] = useState("sci01");
-  const [levelId, setLevelId] = useState("sci01");
+  const [session, setSession] = useState(() => readStoredValue(STORAGE_KEYS.session, null));
+  const [role, setRole] = useState(session?.role || "");
+  const [levelId, setLevelId] = useState(session?.role && session.role !== "admin" ? session.role : "sci01");
   const [teamsByLevel, setTeamsByLevel] = useState(() => readStoredValue(STORAGE_KEYS.teams, initialTeams));
   const [scores, setScores] = useState(() => readStoredValue(STORAGE_KEYS.scores, {}));
   const [selectedTeam, setSelectedTeam] = useState(null);
@@ -85,6 +90,11 @@ function App() {
   useEffect(() => {
     writeStoredValue(STORAGE_KEYS.auditLogs, auditLogs);
   }, [auditLogs]);
+
+  useEffect(() => {
+    if (session) writeStoredValue(STORAGE_KEYS.session, session);
+    else window.localStorage.removeItem(STORAGE_KEYS.session);
+  }, [session]);
 
   useEffect(() => {
     if (!isFirebaseConfigured) return undefined;
@@ -250,6 +260,26 @@ function App() {
     }
   };
 
+  const handleLogin = ({ id, password }) => {
+    if (password !== TEST_PASSWORD) throw new Error("รหัสไม่ถูกต้อง");
+    setSession({ role: id, at: new Date().toISOString() });
+    setRole(id);
+    if (id !== "admin") setLevelId(id);
+    setSelectedTeam(null);
+    setSaveResult(null);
+  };
+
+  const handleLogout = () => {
+    setSession(null);
+    setRole("");
+    setSelectedTeam(null);
+    setSaveResult(null);
+  };
+
+  if (!session) {
+    return <LoginPage onLogin={handleLogin} />;
+  }
+
   if (saveResult) {
     return (
       <SaveCompletePage
@@ -274,16 +304,11 @@ function App() {
           <p className="eyebrow">Green Mech Scoring</p>
           <h1>{role === "admin" ? "Admin Dashboard" : `Judge ${role.toUpperCase()}`}</h1>
         </div>
-        <select value={role} onChange={(event) => setRole(event.target.value)} aria-label="role">
-          <option value="admin">Admin</option>
-          <option value="sci01">sci01</option>
-          <option value="sci02">sci02</option>
-          <option value="sci03">sci03</option>
-        </select>
+        <button className="ghost topbar-logout" onClick={handleLogout}>ออก</button>
       </header>
       <SyncBanner status={syncStatus} error={syncError} />
 
-      <LevelTabs levelId={levelId} setLevelId={setLevelId} />
+      {role === "admin" ? <LevelTabs levelId={levelId} setLevelId={setLevelId} /> : null}
 
       {role === "admin" ? (
         <AdminPage
@@ -303,6 +328,57 @@ function App() {
       ) : (
         <JudgePage teams={enrichedTeams} scores={scores} onScore={setSelectedTeam} />
       )}
+    </main>
+  );
+}
+
+function LoginPage({ onLogin }) {
+  const [id, setId] = useState("admin");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    setError("");
+    try {
+      onLogin({ id, password });
+    } catch (loginError) {
+      setError(loginError.message || "เข้าสู่ระบบไม่สำเร็จ");
+    }
+  };
+
+  return (
+    <main className="login-shell">
+      <form className="panel login-card" onSubmit={handleSubmit}>
+        <div>
+          <p className="eyebrow">Green Mech Scoring</p>
+          <h1>เข้าสู่ระบบ</h1>
+        </div>
+
+        <label>
+          ID
+          <select value={id} onChange={(event) => setId(event.target.value)}>
+            {LOGIN_IDS.map((loginId) => (
+              <option key={loginId} value={loginId}>{loginId}</option>
+            ))}
+          </select>
+        </label>
+
+        <label>
+          รหัส
+          <input
+            autoComplete="current-password"
+            inputMode="numeric"
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            placeholder="1234"
+          />
+        </label>
+
+        {error ? <p className="danger login-error">{error}</p> : null}
+        <button type="submit">เข้าสู่ระบบ</button>
+      </form>
     </main>
   );
 }
