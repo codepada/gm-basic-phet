@@ -86,7 +86,7 @@ function App() {
   };
 
   if (selectedTeam) {
-    return <ScoreWizard team={selectedTeam} existing={scores[selectedTeam.id]} onCancel={() => setSelectedTeam(null)} onSave={saveMainScore} />;
+    return <ScoreWizard key={selectedTeam.id} team={selectedTeam} existing={scores[selectedTeam.id]} onCancel={() => setSelectedTeam(null)} onSave={saveMainScore} />;
   }
 
   return (
@@ -432,7 +432,7 @@ function DeviceStep({ value, onChange }) {
         <h2>จำนวนอุปกรณ์</h2>
       </div>
       <p className="muted">เลือกจำนวนอุปกรณ์ที่ใช้ คะแนนสูงสุด 5</p>
-      <ChoiceGrid columns={6}>
+      <ChoiceGrid columns={3}>
         {Array.from({ length: 6 }, (_, count) => (
           <button key={count} className={value === count ? "choice active" : "choice"} onClick={() => onChange(count)}>
             {count}

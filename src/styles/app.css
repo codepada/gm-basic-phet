@@ -325,6 +325,16 @@ textarea {
   align-content: start;
 }
 
+.device-step .choice-grid {
+  height: 100%;
+  align-self: stretch;
+}
+
+.device-step .choice {
+  min-height: 88px;
+  font-size: 1.35rem;
+}
+
 .shot-title {
   display: flex;
   align-items: center;
@@ -347,11 +357,24 @@ textarea {
   display: grid;
   align-content: start;
   gap: 8px;
+  min-height: 100%;
 }
 
 .phase-position .score-section,
 .phase-distance .score-section {
-  padding-top: 10px;
+  grid-template-rows: auto minmax(0, 1fr);
+  padding-top: 0;
+}
+
+.phase-position .score-section > .choice-grid,
+.phase-distance .score-section > .choice-grid {
+  height: 100%;
+}
+
+.phase-position .score-section > .choice-grid .choice,
+.phase-distance .score-section > .choice-grid .choice {
+  min-height: 132px;
+  font-size: 1.15rem;
 }
 
 .phase-score .score-section {
@@ -664,18 +687,18 @@ textarea {
   }
 
   .choice-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(var(--choice-columns), minmax(0, 1fr));
     gap: 6px;
   }
 
   .choice {
-    min-height: 44px;
-    padding: 4px;
-    font-size: 0.88rem;
+    min-height: 56px;
+    padding: 8px 6px;
+    font-size: 1rem;
   }
 
   .choice small {
-    font-size: 0.68rem;
+    font-size: 0.74rem;
   }
 
   .scoring-step {
@@ -684,25 +707,25 @@ textarea {
   }
 
   .score-section {
-    gap: 5px;
+    gap: 8px;
   }
 
   .score-section h3 {
-    font-size: 0.95rem;
+    font-size: 1.05rem;
   }
 
   .score-section h4 {
-    font-size: 0.8rem;
+    font-size: 0.9rem;
   }
 
   .shot-title > strong {
-    min-width: 52px;
-    min-height: 32px;
-    font-size: 0.92rem;
+    min-width: 64px;
+    min-height: 40px;
+    font-size: 1.08rem;
   }
 
   .shot-title h2 {
-    font-size: 1rem;
+    font-size: 1.08rem;
   }
 
   .shot-title .eyebrow {
@@ -710,55 +733,70 @@ textarea {
   }
 
   .ball-card {
-    gap: 4px;
-    padding: 5px;
+    gap: 6px;
+    padding: 8px;
   }
 
   .ball-card strong {
-    font-size: 0.8rem;
+    font-size: 0.92rem;
   }
 
   .ball-card .choice-grid {
-    gap: 4px;
+    gap: 6px;
   }
 
   .ball-card .choice {
-    min-height: 36px;
-    font-size: 0.78rem;
+    min-height: 48px;
+    font-size: 0.9rem;
   }
 
   .ball-card .choice small {
-    font-size: 0.6rem;
+    font-size: 0.66rem;
   }
 
   .sub-section {
-    gap: 5px;
-    padding-top: 6px;
+    gap: 7px;
+    padding-top: 8px;
   }
 
   .compact-section {
-    gap: 4px;
-    padding-top: 5px;
+    gap: 6px;
+    padding-top: 8px;
   }
 
   .smooth-grid {
-    gap: 4px;
+    gap: 6px;
   }
 
   .smooth-score {
-    min-height: 34px;
-    font-size: 1rem;
+    min-height: 42px;
+    font-size: 1.12rem;
   }
 
   .counter {
-    grid-template-columns: minmax(0, 1fr) 36px 40px 36px;
-    gap: 4px;
-    font-size: 0.82rem;
+    grid-template-columns: minmax(0, 1fr) 44px 52px 44px;
+    gap: 6px;
+    font-size: 0.95rem;
   }
 
   .counter button,
   .counter strong {
-    min-height: 34px;
+    min-height: 42px;
+  }
+
+  .device-step .choice {
+    min-height: 84px;
+    font-size: 1.35rem;
+  }
+
+  .phase-position .score-section > .choice-grid .choice,
+  .phase-distance .score-section > .choice-grid .choice {
+    min-height: 150px;
+    font-size: 1.16rem;
+  }
+
+  .result-grid {
+    grid-template-columns: 1fr;
   }
 
   .sticky-total {
@@ -816,22 +854,31 @@ textarea {
   }
 
   .choice {
-    min-height: 38px;
-    font-size: 0.8rem;
+    min-height: 48px;
+    font-size: 0.92rem;
   }
 
   .ball-card .choice {
-    min-height: 32px;
-    font-size: 0.72rem;
+    min-height: 40px;
+    font-size: 0.82rem;
   }
 
   .counter button,
   .counter strong {
-    min-height: 30px;
+    min-height: 36px;
   }
 
   .smooth-score {
-    min-height: 30px;
+    min-height: 36px;
+  }
+
+  .device-step .choice {
+    min-height: 66px;
+  }
+
+  .phase-position .score-section > .choice-grid .choice,
+  .phase-distance .score-section > .choice-grid .choice {
+    min-height: 104px;
   }
 
   .sticky-total {
