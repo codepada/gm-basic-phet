@@ -57,7 +57,7 @@ function writeStoredValue(key, value) {
 
 function defaultSettings() {
   return {
-    judgeAssignments: Object.fromEntries(JUDGE_ACCOUNTS.map((account) => [account.id, { from: 1, to: 999, pkTeamOrder: "" }])),
+    judgeAssignments: Object.fromEntries(JUDGE_ACCOUNTS.map((account) => [account.id, { enabled: true, from: 1, to: 999, pkTeamOrder: "" }])),
   };
 }
 
@@ -78,6 +78,7 @@ function fullTeamName(team) {
 
 function teamWithinAssignment(team, assignment) {
   if (!assignment) return true;
+  if (assignment.enabled === false) return false;
   const from = Number(assignment.from) || 1;
   const to = Number(assignment.to) || 999;
   return team.order >= from && team.order <= to;
@@ -493,6 +494,7 @@ function LevelTabs({ levelId, setLevelId }) {
 }
 
 function JudgePage({ teams, scores, assignment, onScore }) {
+  const isEnabled = assignment?.enabled !== false;
   return (
     <section className="stack">
       <div className="summary-row">
@@ -501,8 +503,8 @@ function JudgePage({ teams, scores, assignment, onScore }) {
         <Metric label="ยังไม่จบ" value={teams.filter((team) => team.status !== "main-complete").length} />
       </div>
       {assignment ? (
-        <section className="panel assignment-note">
-          <strong>ช่วงทีมที่รับผิดชอบ: {assignment.from || 1}-{assignment.to || 999}</strong>
+        <section className={isEnabled ? "panel assignment-note" : "panel assignment-note disabled"}>
+          <strong>{isEnabled ? `ช่วงทีมที่รับผิดชอบ: ${assignment.from || 1}-${assignment.to || 999}` : "ID นี้ยังไม่ได้เปิดให้ลงคะแนน"}</strong>
           {assignment.pkTeamOrder ? <span>PK ที่ได้รับมอบหมาย: ทีมลำดับ {assignment.pkTeamOrder}</span> : null}
         </section>
       ) : null}
@@ -524,102 +526,115 @@ function JudgePage({ teams, scores, assignment, onScore }) {
 }
 
 function AdminPage({ levelId, teams, scores, auditLogs, settings, isCloudReady, syncStatus, setupStatus, awardCutoff, setAwardCutoff, pkPolicy, setPkPolicy, onSaveTeamSetup, onSaveSettings }) {
+  const [adminTab, setAdminTab] = useState("dashboard");
   const completed = teams.filter((team) => scores[team.id]);
   const mainRanking = [...teams].sort((a, b) => (b.mainTotal ?? -1) - (a.mainTotal ?? -1));
   const pkNeeds = completed.length === teams.length ? pkNeededForMain(completed, awardCutoff, pkPolicy) : [];
 
   return (
     <section className="stack">
+      <nav className="admin-tabs" aria-label="admin sections">
+        <button className={adminTab === "dashboard" ? "active" : ""} onClick={() => setAdminTab("dashboard")}>Dashboard</button>
+        <button className={adminTab === "teams" ? "active" : ""} onClick={() => setAdminTab("teams")}>ทีม</button>
+        <button className={adminTab === "judges" ? "active" : ""} onClick={() => setAdminTab("judges")}>กรรมการ</button>
+      </nav>
+
       <div className="summary-row">
         <Metric label="ทีม" value={teams.length} />
         <Metric label="จบรอบแรก" value={completed.length} />
         <Metric label="ยังไม่จบ" value={teams.length - completed.length} />
       </div>
 
-      <TeamSetupPanel levelId={levelId} teams={teams} status={setupStatus} onSave={onSaveTeamSetup} />
+      {adminTab === "teams" ? <TeamSetupPanel levelId={levelId} teams={teams} status={setupStatus} onSave={onSaveTeamSetup} /> : null}
 
-      <JudgeAssignmentPanel
-        levelId={levelId}
-        teams={teams}
-        assignments={settings.judgeAssignments || {}}
-        onSave={(judgeAssignments) => onSaveSettings({ judgeAssignments })}
-      />
-
-      <section className="panel">
-        <h2>{LEVEL_LABELS[levelId]} Main Summary</h2>
-        {completed.length === 0 ? (
-          <p className="muted">ยังไม่มีคะแนนที่บันทึกในระดับนี้</p>
-        ) : completed.length !== teams.length ? (
-          <p className="muted">มีคะแนนแล้ว {completed.length}/{teams.length} ทีม</p>
-        ) : (
-          <p className="ok">ครบแล้ว ครูกดเริ่ม PK ได้</p>
-        )}
-        <div className="ranking">
-          {mainRanking.map((team, index) => (
-            <div key={team.id}>
-              <span>{index + 1}. {team.teamName || team.name}{team.school ? ` • ${team.school}` : ""}</span>
-              <strong>{team.mainTotal ?? "-"} คะแนน</strong>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {!isCloudReady ? (
-        <section className="panel cloud-warning">
-          <strong>ยังไม่ได้เชื่อมฐานข้อมูลกลาง</strong>
-          <span>Admin หน้านี้ดูข้อมูลที่อยู่ในเครื่อง/เบราว์เซอร์นี้ได้ แต่จะยังไม่เห็นคะแนนจากมือถือเครื่องอื่นจนกว่าจะใส่ค่า Firebase ให้ GitHub Pages</span>
-        </section>
+      {adminTab === "judges" ? (
+        <JudgeAssignmentPanel
+          levelId={levelId}
+          teams={teams}
+          assignments={settings.judgeAssignments || {}}
+          onSave={(judgeAssignments) => onSaveSettings({ judgeAssignments })}
+        />
       ) : null}
 
-      <section className="panel">
-        <h2>ตั้งค่า PK</h2>
-        <div className="form-grid">
-          <label>
-            ให้รางวัลถึงอันดับที่
-            <select value={awardCutoff} onChange={(event) => setAwardCutoff(Number(event.target.value))}>
-              {Array.from({ length: 18 }, (_, index) => index + 3).map((value) => (
-                <option key={value} value={value}>{value}</option>
+      {adminTab === "dashboard" ? (
+        <>
+          <section className="panel">
+            <h2>{LEVEL_LABELS[levelId]} Main Summary</h2>
+            {completed.length === 0 ? (
+              <p className="muted">ยังไม่มีคะแนนที่บันทึกในระดับนี้</p>
+            ) : completed.length !== teams.length ? (
+              <p className="muted">มีคะแนนแล้ว {completed.length}/{teams.length} ทีม</p>
+            ) : (
+              <p className="ok">ครบแล้ว ครูกดเริ่ม PK ได้</p>
+            )}
+            <div className="ranking">
+              {mainRanking.map((team, index) => (
+                <div key={team.id}>
+                  <span>{index + 1}. {team.teamName || team.name}{team.school ? ` • ${team.school}` : ""}</span>
+                  <strong>{team.mainTotal ?? "-"} คะแนน</strong>
+                </div>
               ))}
-            </select>
-          </label>
-          <label>
-            Mode
-            <select value={pkPolicy} onChange={(event) => setPkPolicy(event.target.value)}>
-              <option value={PK_POLICY.podiumCutoff}>Podium + Award Cutoff</option>
-              <option value={PK_POLICY.exactRanking}>Exact Ranking 1-N</option>
-            </select>
-          </label>
-        </div>
-      </section>
-
-      <section className="panel">
-        <h2>PK Status</h2>
-        {completed.length !== teams.length ? (
-          <p className="muted">ยังไม่สรุป</p>
-        ) : pkNeeds.length ? (
-          pkNeeds.map((need) => (
-            <div key={need.teamIds.join("-")} className="pk-card">
-              <strong>ต้อง PK ชิงอันดับ {need.placeStart}-{need.placeEnd}</strong>
-              <span>{need.teamIds.length} ทีม • Main {need.score}</span>
-              <button>เริ่ม PK</button>
             </div>
-          ))
-        ) : (
-          <p className="ok">ไม่ต้อง PK ตาม policy ปัจจุบัน</p>
-        )}
-      </section>
+          </section>
 
-      <section className="panel">
-        <h2>Audit Log</h2>
-        <div className="audit-list">
-          {auditLogs.map((log) => (
-            <div key={log.id}>
-              <strong>{log.action}</strong>
-              <span>{log.team} • {log.judge} • {new Date(log.at).toLocaleString("th-TH")}</span>
+          {!isCloudReady ? (
+            <section className="panel cloud-warning">
+              <strong>ยังไม่ได้เชื่อมฐานข้อมูลกลาง</strong>
+              <span>Admin หน้านี้ดูข้อมูลที่อยู่ในเครื่อง/เบราว์เซอร์นี้ได้ แต่จะยังไม่เห็นคะแนนจากมือถือเครื่องอื่นจนกว่าจะใส่ค่า Firebase ให้ GitHub Pages</span>
+            </section>
+          ) : null}
+
+          <section className="panel">
+            <h2>ตั้งค่า PK</h2>
+            <div className="form-grid">
+              <label>
+                ให้รางวัลถึงอันดับที่
+                <select value={awardCutoff} onChange={(event) => setAwardCutoff(Number(event.target.value))}>
+                  {Array.from({ length: 18 }, (_, index) => index + 3).map((value) => (
+                    <option key={value} value={value}>{value}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Mode
+                <select value={pkPolicy} onChange={(event) => setPkPolicy(event.target.value)}>
+                  <option value={PK_POLICY.podiumCutoff}>Podium + Award Cutoff</option>
+                  <option value={PK_POLICY.exactRanking}>Exact Ranking 1-N</option>
+                </select>
+              </label>
             </div>
-          ))}
-        </div>
-      </section>
+          </section>
+
+          <section className="panel">
+            <h2>PK Status</h2>
+            {completed.length !== teams.length ? (
+              <p className="muted">ยังไม่สรุป</p>
+            ) : pkNeeds.length ? (
+              pkNeeds.map((need) => (
+                <div key={need.teamIds.join("-")} className="pk-card">
+                  <strong>ต้อง PK ชิงอันดับ {need.placeStart}-{need.placeEnd}</strong>
+                  <span>{need.teamIds.length} ทีม • Main {need.score}</span>
+                  <button>เริ่ม PK</button>
+                </div>
+              ))
+            ) : (
+              <p className="ok">ไม่ต้อง PK ตาม policy ปัจจุบัน</p>
+            )}
+          </section>
+
+          <section className="panel">
+            <h2>Audit Log</h2>
+            <div className="audit-list">
+              {auditLogs.map((log) => (
+                <div key={log.id}>
+                  <strong>{log.action}</strong>
+                  <span>{log.team} • {log.judge} • {new Date(log.at).toLocaleString("th-TH")}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        </>
+      ) : null}
     </section>
   );
 }
@@ -654,21 +669,26 @@ function JudgeAssignmentPanel({ levelId, teams, assignments, onSave }) {
       </div>
       <div className="assignment-grid">
         {judgeIds.map((judgeId) => {
-          const assignment = draft[judgeId] || { from: 1, to: teams.length || 1, pkTeamOrder: "" };
+          const assignment = draft[judgeId] || { enabled: true, from: 1, to: teams.length || 1, pkTeamOrder: "" };
+          const enabled = assignment.enabled !== false;
           return (
-            <div key={judgeId} className="assignment-row">
+            <div key={judgeId} className={enabled ? "assignment-row" : "assignment-row disabled"}>
               <strong>{judgeId}</strong>
+              <label className="check-row assignment-enabled">
+                <input type="checkbox" checked={enabled} onChange={(event) => updateJudge(judgeId, { enabled: event.target.checked })} />
+                เปิดใช้
+              </label>
               <label>
                 จากทีม
-                <input inputMode="numeric" type="number" min="1" max={teams.length || 999} value={assignment.from || ""} onChange={(event) => updateJudge(judgeId, { from: Number(event.target.value) })} />
+                <input disabled={!enabled} inputMode="numeric" type="number" min="1" max={teams.length || 999} value={assignment.from || ""} onChange={(event) => updateJudge(judgeId, { from: Number(event.target.value) })} />
               </label>
               <label>
                 ถึงทีม
-                <input inputMode="numeric" type="number" min="1" max={teams.length || 999} value={assignment.to || ""} onChange={(event) => updateJudge(judgeId, { to: Number(event.target.value) })} />
+                <input disabled={!enabled} inputMode="numeric" type="number" min="1" max={teams.length || 999} value={assignment.to || ""} onChange={(event) => updateJudge(judgeId, { to: Number(event.target.value) })} />
               </label>
               <label>
                 PK
-                <select value={assignment.pkTeamOrder || ""} onChange={(event) => updateJudge(judgeId, { pkTeamOrder: event.target.value ? Number(event.target.value) : "" })}>
+                <select disabled={!enabled} value={assignment.pkTeamOrder || ""} onChange={(event) => updateJudge(judgeId, { pkTeamOrder: event.target.value ? Number(event.target.value) : "" })}>
                   <option value="">ยังไม่มอบหมาย</option>
                   {teams.map((team) => (
                     <option key={team.id} value={team.order}>{team.order}. {team.teamName || team.name}</option>

@@ -140,7 +140,8 @@ h2 {
 }
 
 .tabs,
-.segmented {
+.segmented,
+.admin-tabs {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
@@ -187,13 +188,15 @@ h2 {
 }
 
 .tabs button,
-.segmented button {
+.segmented button,
+.admin-tabs button {
   background: #dfe8e4;
   color: var(--ink);
 }
 
 .tabs button.active,
-.segmented button.active {
+.segmented button.active,
+.admin-tabs button.active {
   background: var(--green);
   color: white;
 }
@@ -314,13 +317,18 @@ h2 {
 
 .assignment-row {
   display: grid;
-  grid-template-columns: 72px repeat(3, minmax(0, 1fr));
+  grid-template-columns: 72px 92px repeat(3, minmax(0, 1fr));
   align-items: end;
   gap: 8px;
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 10px;
   background: #fbfcfc;
+}
+
+.assignment-row.disabled {
+  opacity: 0.72;
+  background: #f3f5f4;
 }
 
 .assignment-row > strong {
@@ -332,9 +340,23 @@ h2 {
   color: var(--green-dark);
 }
 
+.assignment-enabled {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
 .assignment-note {
   gap: 4px;
   padding: 10px;
+}
+
+.assignment-note.disabled {
+  border-color: #edc0c5;
+  background: #fff5f6;
+  color: var(--red);
 }
 
 .assignment-note span {
