@@ -413,6 +413,41 @@ h2 {
   font-weight: 900;
 }
 
+.pk-status-list,
+.pk-result-list {
+  display: grid;
+  gap: 8px;
+}
+
+.pk-result-list div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfc;
+  padding: 10px;
+  font-weight: 900;
+}
+
+.pk-badges {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.pk-badges b {
+  border-radius: 6px;
+  background: var(--amber);
+  color: white;
+  padding: 2px 6px;
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
 .pk-judge-head {
   display: grid;
   grid-template-columns: 80px minmax(0, 1fr);

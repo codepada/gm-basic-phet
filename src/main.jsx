@@ -60,6 +60,7 @@ function defaultSettings() {
     judgeAssignments: Object.fromEntries(JUDGE_ACCOUNTS.map((account) => [account.id, { enabled: true, judgeName: "", from: 1, to: 999, pkTeamOrder: "" }])),
     pkAssignments: Object.fromEntries(JUDGE_ACCOUNTS.map((account) => [account.id, []])),
     pkConfigByLevel: Object.fromEntries(LEVELS.map((level) => [level.id, { awardCutoff: 6, pkPolicy: PK_POLICY.podiumCutoff }])),
+    pkRoundsByLevel: Object.fromEntries(LEVELS.map((level) => [level.id, {}])),
   };
 }
 
@@ -102,6 +103,12 @@ function sortTeamsForResults(teams) {
     if (bScored) return 1;
     return a.order - b.order;
   });
+}
+
+function pkRoundLabels(roundsByTeam, teamId) {
+  const rounds = roundsByTeam?.[teamId];
+  if (!Array.isArray(rounds)) return [];
+  return [...new Set(rounds.map(Number).filter(Boolean))].sort((a, b) => a - b).map((round) => `PK${round}`);
 }
 
 function App() {
@@ -361,6 +368,17 @@ function App() {
       ...current,
       [levelId]: (current[levelId] || []).map((team) => ({ ...team, status: "pending", mainTotal: null, lock: null })),
     }));
+    const clearedPkRoundsByLevel = {
+      ...(settings.pkRoundsByLevel || {}),
+      [levelId]: {},
+    };
+    setSettings((current) => ({
+      ...current,
+      pkRoundsByLevel: {
+        ...(current.pkRoundsByLevel || {}),
+        [levelId]: {},
+      },
+    }));
     setAuditLogs((current) => [
       {
         id: crypto.randomUUID(),
@@ -378,6 +396,7 @@ function App() {
       setSyncError("");
       try {
         await resetLevelMainScores(levelId, { uid: ADMIN_ID, role: "admin" });
+        await saveSettings({ pkRoundsByLevel: clearedPkRoundsByLevel }, { uid: ADMIN_ID });
         setSyncStatus("รีเซ็ตคะแนน Firebase สำเร็จ");
       } catch (error) {
         setSyncStatus("รีเซ็ตในเครื่องแล้ว แต่รีเซ็ต Firebase ไม่สำเร็จ");
@@ -612,6 +631,7 @@ function AdminPage({ levelId, teams, scores, auditLogs, settings, isCloudReady, 
   const pkNeeds = completed.length === teams.length ? pkNeededForMain(completed, awardCutoff, pkPolicy) : [];
   const pkTeamIds = new Set(pkNeeds.flatMap((need) => need.teamIds));
   const pkTeams = teams.filter((team) => pkTeamIds.has(team.id)).sort((a, b) => a.order - b.order);
+  const pkRounds = settings.pkRoundsByLevel?.[levelId] || {};
 
   const savePkSettings = async () => {
     if (!window.confirm(`ยืนยันบันทึกตั้งค่า PK ของ ${LEVEL_LABELS[levelId]} หรือไม่?`)) return;
@@ -631,6 +651,22 @@ function AdminPage({ levelId, teams, scores, auditLogs, settings, isCloudReady, 
     } catch (error) {
       setResetStatus(error.message || "รีเซ็ตคะแนนไม่สำเร็จ");
     }
+  };
+
+  const markCurrentPkRound = async () => {
+    if (!pkTeams.length) return;
+    const nextRound = Math.max(0, ...pkTeams.flatMap((team) => (pkRounds[team.id] || []).map(Number).filter(Boolean))) + 1;
+    if (!window.confirm(`ยืนยันบันทึกทีมชุดนี้เป็น PK${nextRound} หรือไม่?`)) return;
+    const nextLevelRounds = { ...pkRounds };
+    pkTeams.forEach((team) => {
+      nextLevelRounds[team.id] = [...new Set([...(nextLevelRounds[team.id] || []), nextRound])].sort((a, b) => a - b);
+    });
+    await onSaveSettings({
+      pkRoundsByLevel: {
+        ...(settings.pkRoundsByLevel || {}),
+        [levelId]: nextLevelRounds,
+      },
+    });
   };
 
   return (
@@ -661,15 +697,34 @@ function AdminPage({ levelId, teams, scores, auditLogs, settings, isCloudReady, 
       ) : null}
 
       {adminTab === "pk" ? (
-        <PkAssignmentPanel
-          levelId={levelId}
-          pkTeams={pkTeams}
-          pkNeeds={pkNeeds}
-          allTeamsComplete={completed.length === teams.length}
-          assignments={settings.judgeAssignments || {}}
-          pkAssignments={settings.pkAssignments || {}}
-          onSave={(pkAssignments) => onSaveSettings({ pkAssignments })}
-        />
+        <>
+          <PkSettingsPanel
+            levelId={levelId}
+            awardCutoff={awardCutoff}
+            setAwardCutoff={setAwardCutoff}
+            pkPolicy={pkPolicy}
+            setPkPolicy={setPkPolicy}
+            status={pkSettingsStatus}
+            setStatus={setPkSettingsStatus}
+            onSave={savePkSettings}
+          />
+          <PkStatusPanel
+            allTeamsComplete={completed.length === teams.length}
+            pkNeeds={pkNeeds}
+            pkTeams={pkTeams}
+            pkRounds={pkRounds}
+            onMarkRound={markCurrentPkRound}
+          />
+          <PkAssignmentPanel
+            levelId={levelId}
+            pkTeams={pkTeams}
+            pkNeeds={pkNeeds}
+            allTeamsComplete={completed.length === teams.length}
+            assignments={settings.judgeAssignments || {}}
+            pkAssignments={settings.pkAssignments || {}}
+            onSave={(pkAssignments) => onSaveSettings({ pkAssignments })}
+          />
+        </>
       ) : null}
 
       {adminTab === "print" ? <PrintResultsPage levelId={levelId} teams={mainRanking} scores={scores} /> : null}
@@ -688,7 +743,10 @@ function AdminPage({ levelId, teams, scores, auditLogs, settings, isCloudReady, 
             <div className="ranking">
               {mainRanking.map((team, index) => (
                 <div key={team.id}>
-                  <span>{index + 1}. {team.teamName || team.name}{team.school ? ` • ${team.school}` : ""}</span>
+                  <span>
+                    {index + 1}. {team.teamName || team.name}{team.school ? ` • ${team.school}` : ""}
+                    <PkBadges labels={pkRoundLabels(pkRounds, team.id)} />
+                  </span>
                   <strong>{team.mainTotal ?? "-"} คะแนน</strong>
                 </div>
               ))}
@@ -702,37 +760,6 @@ function AdminPage({ levelId, teams, scores, auditLogs, settings, isCloudReady, 
             </section>
           ) : null}
 
-          <section className="panel">
-            <h2>ตั้งค่า PK</h2>
-            <div className="form-grid">
-              <label>
-                ให้รางวัลถึงอันดับที่
-                <select value={awardCutoff} onChange={(event) => {
-                  setAwardCutoff(Number(event.target.value));
-                  setPkSettingsStatus("");
-                }}>
-                  {Array.from({ length: 18 }, (_, index) => index + 3).map((value) => (
-                    <option key={value} value={value}>{value}</option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Mode
-                <select value={pkPolicy} onChange={(event) => {
-                  setPkPolicy(event.target.value);
-                  setPkSettingsStatus("");
-                }}>
-                  <option value={PK_POLICY.podiumCutoff}>Podium + Award Cutoff</option>
-                  <option value={PK_POLICY.exactRanking}>Exact Ranking 1-N</option>
-                </select>
-              </label>
-            </div>
-            <div className="setup-actions">
-              <p className="muted">{pkSettingsStatus || "เปลี่ยนค่าแล้วต้องกดบันทึก เพื่อให้ admin เปิดใหม่แล้วยังใช้ค่าเดิม"}</p>
-              <button onClick={savePkSettings}>บันทึกตั้งค่า PK</button>
-            </div>
-          </section>
-
           <section className="panel reset-panel">
             <div>
               <p className="eyebrow">Test Reset</p>
@@ -743,23 +770,6 @@ function AdminPage({ levelId, teams, scores, auditLogs, settings, isCloudReady, 
               <p className={resetStatus.includes("ไม่สำเร็จ") ? "danger" : "muted"}>{resetStatus || `มีคะแนนแล้ว ${completed.length}/${teams.length} ทีม`}</p>
               <button className="danger-button" disabled={completed.length === 0} onClick={resetLevelScores}>รีเซ็ตคะแนนระดับนี้</button>
             </div>
-          </section>
-
-          <section className="panel">
-            <h2>PK Status</h2>
-            {completed.length !== teams.length ? (
-              <p className="muted">ยังไม่สรุป</p>
-            ) : pkNeeds.length ? (
-              pkNeeds.map((need) => (
-                <div key={need.teamIds.join("-")} className="pk-card">
-                  <strong>ต้อง PK ชิงอันดับ {need.placeStart}-{need.placeEnd}</strong>
-                  <span>{need.teamIds.length} ทีม • Main {need.score}</span>
-                  <button>เริ่ม PK</button>
-                </div>
-              ))
-            ) : (
-              <p className="ok">ไม่ต้อง PK ตาม policy ปัจจุบัน</p>
-            )}
           </section>
 
           <section className="panel">
@@ -838,6 +848,90 @@ function JudgeAssignmentPanel({ levelId, teams, assignments, onSave }) {
       <div className="setup-actions">
         <p className="muted">{status || "กำหนดช่วงทีมที่แต่ละ ID มองเห็น และเลือกทีม PK ได้ ID ละ 1 ทีม"}</p>
         <button onClick={handleSave}>บันทึกการมอบหมาย</button>
+      </div>
+    </section>
+  );
+}
+
+function PkBadges({ labels }) {
+  if (!labels.length) return null;
+  return (
+    <span className="pk-badges">
+      {labels.map((label) => <b key={label}>{label}</b>)}
+    </span>
+  );
+}
+
+function PkSettingsPanel({ levelId, awardCutoff, setAwardCutoff, pkPolicy, setPkPolicy, status, setStatus, onSave }) {
+  return (
+    <section className="panel">
+      <div>
+        <p className="eyebrow">PK Setup</p>
+        <h2>ตั้งค่า PK {LEVEL_LABELS[levelId]}</h2>
+      </div>
+      <div className="form-grid">
+        <label>
+          ให้รางวัลถึงอันดับที่
+          <select value={awardCutoff} onChange={(event) => {
+            setAwardCutoff(Number(event.target.value));
+            setStatus("");
+          }}>
+            {Array.from({ length: 18 }, (_, index) => index + 3).map((value) => (
+              <option key={value} value={value}>{value}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Mode
+          <select value={pkPolicy} onChange={(event) => {
+            setPkPolicy(event.target.value);
+            setStatus("");
+          }}>
+            <option value={PK_POLICY.podiumCutoff}>Podium + Award Cutoff</option>
+            <option value={PK_POLICY.exactRanking}>Exact Ranking 1-N</option>
+          </select>
+        </label>
+      </div>
+      <div className="setup-actions">
+        <p className="muted">{status || "เปลี่ยนค่าแล้วต้องกดบันทึก เพื่อให้ admin เปิดใหม่แล้วยังใช้ค่าเดิม"}</p>
+        <button onClick={onSave}>บันทึกตั้งค่า PK</button>
+      </div>
+    </section>
+  );
+}
+
+function PkStatusPanel({ allTeamsComplete, pkNeeds, pkTeams, pkRounds, onMarkRound }) {
+  return (
+    <section className="panel">
+      <div>
+        <p className="eyebrow">PK Result</p>
+        <h2>ผลและสถานะ PK</h2>
+      </div>
+      {!allTeamsComplete ? <p className="muted">ยังให้คะแนนรอบแรกไม่ครบทุกทีม ระบบจะแสดงผล PK หลังคะแนนครบ</p> : null}
+      {allTeamsComplete && !pkNeeds.length ? <p className="ok">ไม่ต้อง PK ตาม policy ปัจจุบัน</p> : null}
+      {pkNeeds.length ? (
+        <div className="pk-status-list">
+          {pkNeeds.map((need) => (
+            <div key={need.teamIds.join("-")} className="pk-card">
+              <strong>ต้อง PK ชิงอันดับ {need.placeStart}-{need.placeEnd}</strong>
+              <span>{need.teamIds.length} ทีม • Main {need.score}</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {pkTeams.length ? (
+        <div className="pk-result-list">
+          {pkTeams.map((team) => (
+            <div key={team.id}>
+              <span>{team.order}. {team.teamName || team.name}</span>
+              <PkBadges labels={pkRoundLabels(pkRounds, team.id)} />
+            </div>
+          ))}
+        </div>
+      ) : null}
+      <div className="setup-actions">
+        <p className="muted">กดบันทึกรอบเมื่อทีมชุดนี้ต้องยิง PK รอบใหม่ เช่น PK1 แล้วถ้ายังเสมออีกให้กดอีกครั้งเป็น PK2</p>
+        <button disabled={!pkTeams.length} onClick={onMarkRound}>บันทึกรอบ PK ของทีมชุดนี้</button>
       </div>
     </section>
   );
