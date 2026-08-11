@@ -372,12 +372,15 @@ function App() {
     return <ScoreWizard key={selectedTeam.id} team={selectedTeam} existing={scores[selectedTeam.id]} onCancel={() => setSelectedTeam(null)} onSave={saveMainScore} />;
   }
 
+  const currentJudgeAssignment = role === ADMIN_ID ? null : settings.judgeAssignments?.[role];
+  const judgeName = currentJudgeAssignment?.judgeName?.trim();
+
   return (
     <main className="app-shell">
       <header className="topbar">
         <div>
-          <p className="eyebrow">Green Mech Scoring</p>
-          <h1>{role === ADMIN_ID ? "Admin Dashboard" : `Judge ${role.toUpperCase()}`}</h1>
+          <p className="eyebrow">{role === ADMIN_ID ? "Green Mech Scoring" : `ID ${role.toUpperCase()}`}</p>
+          <h1>{role === ADMIN_ID ? "Admin Dashboard" : judgeName || `Judge ${role.toUpperCase()}`}</h1>
         </div>
         <button className="ghost topbar-logout" onClick={handleLogout}>ออก</button>
       </header>
@@ -405,7 +408,7 @@ function App() {
           }}
         />
       ) : (
-        <JudgePage teams={visibleTeams} scores={scores} assignment={settings.judgeAssignments?.[role]} pkOrders={pkOrdersForJudge(settings, role)} onScore={setSelectedTeam} />
+        <JudgePage teams={visibleTeams} scores={scores} assignment={currentJudgeAssignment} pkOrders={pkOrdersForJudge(settings, role)} onScore={setSelectedTeam} />
       )}
     </main>
   );
