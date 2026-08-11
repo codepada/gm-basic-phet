@@ -18,7 +18,7 @@ import { pkNeededForMain } from "./core/pk.js";
 import { nextUnscoredTeam } from "./core/teams.js";
 import { sampleTeams } from "./data/sampleTeams.js";
 import { isFirebaseConfigured } from "./firebase/config.js";
-import { listenMainScores, listenSettings, listenTeams, saveSettings, saveTeamSetup, submitMainScore } from "./firebase/services.js";
+import { listenMainScores, listenSettings, listenTeams, resetLevelMainScores, saveSettings, saveTeamSetup, submitMainScore } from "./firebase/services.js";
 import "./styles/app.css";
 
 const initialTeams = Object.fromEntries(
@@ -59,6 +59,7 @@ function defaultSettings() {
   return {
     judgeAssignments: Object.fromEntries(JUDGE_ACCOUNTS.map((account) => [account.id, { enabled: true, judgeName: "", from: 1, to: 999, pkTeamOrder: "" }])),
     pkAssignments: Object.fromEntries(JUDGE_ACCOUNTS.map((account) => [account.id, []])),
+    pkConfigByLevel: Object.fromEntries(LEVELS.map((level) => [level.id, { awardCutoff: 6, pkPolicy: PK_POLICY.podiumCutoff }])),
   };
 }
 
@@ -149,6 +150,13 @@ function App() {
   }, [settings]);
 
   useEffect(() => {
+    const pkConfig = settings.pkConfigByLevel?.[levelId];
+    if (!pkConfig) return;
+    setAwardCutoff(Number(pkConfig.awardCutoff) || 6);
+    setPkPolicy(pkConfig.pkPolicy || PK_POLICY.podiumCutoff);
+  }, [levelId, settings.pkConfigByLevel]);
+
+  useEffect(() => {
     if (session) writeStoredValue(STORAGE_KEYS.session, session);
     else window.localStorage.removeItem(STORAGE_KEYS.session);
   }, [session]);
@@ -197,7 +205,9 @@ function App() {
       levelId,
       (remoteScores) => {
         setScores((current) => {
-          const next = { ...current };
+          const next = Object.fromEntries(
+            Object.entries(current).filter(([teamId, score]) => score?.levelId !== levelId && !teamId.startsWith(`${levelId}-`)),
+          );
           remoteScores.forEach((score) => {
             next[score.teamId || score.id] = score;
           });
@@ -334,6 +344,50 @@ function App() {
     }
   };
 
+  const resetScoresFromAdmin = async () => {
+    const currentTeams = teamsByLevel[levelId] || [];
+    const levelLabel = LEVEL_LABELS[levelId];
+    if (!window.confirm(`ยืนยันรีเซ็ตคะแนน ${levelLabel} หรือไม่?\nคะแนนที่กรรมการบันทึกไว้ในระดับนี้จะถูกลบทั้งหมด เพื่อเริ่มทดสอบใหม่`)) return false;
+
+    const teamIds = new Set(currentTeams.map((team) => team.id));
+    setScores((current) => {
+      const next = { ...current };
+      teamIds.forEach((teamId) => {
+        delete next[teamId];
+      });
+      return next;
+    });
+    setTeamsByLevel((current) => ({
+      ...current,
+      [levelId]: (current[levelId] || []).map((team) => ({ ...team, status: "pending", mainTotal: null, lock: null })),
+    }));
+    setAuditLogs((current) => [
+      {
+        id: crypto.randomUUID(),
+        at: new Date().toISOString(),
+        judge: ADMIN_ID,
+        levelId,
+        team: levelLabel,
+        action: "mainScores.reset",
+      },
+      ...current,
+    ]);
+
+    if (isFirebaseConfigured) {
+      setSyncStatus("กำลังรีเซ็ตคะแนน Firebase...");
+      setSyncError("");
+      try {
+        await resetLevelMainScores(levelId, { uid: ADMIN_ID, role: "admin" });
+        setSyncStatus("รีเซ็ตคะแนน Firebase สำเร็จ");
+      } catch (error) {
+        setSyncStatus("รีเซ็ตในเครื่องแล้ว แต่รีเซ็ต Firebase ไม่สำเร็จ");
+        setSyncError(error.message);
+        throw error;
+      }
+    }
+    return true;
+  };
+
   const handleLogin = ({ id, password }) => {
     const expectedPassword = id === ADMIN_ID ? ADMIN_PASSWORD : JUDGE_PASSWORD;
     if (password !== expectedPassword) throw new Error("รหัสไม่ถูกต้อง");
@@ -402,6 +456,7 @@ function App() {
           pkPolicy={pkPolicy}
           setPkPolicy={setPkPolicy}
           onSaveTeamSetup={saveTeamsFromAdmin}
+          onResetScores={resetScoresFromAdmin}
           onSaveSettings={async (nextSettings) => {
             setSettings((current) => ({ ...current, ...nextSettings }));
             if (isFirebaseConfigured) await saveSettings(nextSettings, { uid: ADMIN_ID });
@@ -548,13 +603,35 @@ function JudgePage({ teams, scores, assignment, pkOrders, onScore }) {
   );
 }
 
-function AdminPage({ levelId, teams, scores, auditLogs, settings, isCloudReady, setupStatus, awardCutoff, setAwardCutoff, pkPolicy, setPkPolicy, onSaveTeamSetup, onSaveSettings }) {
+function AdminPage({ levelId, teams, scores, auditLogs, settings, isCloudReady, setupStatus, awardCutoff, setAwardCutoff, pkPolicy, setPkPolicy, onSaveTeamSetup, onResetScores, onSaveSettings }) {
   const [adminTab, setAdminTab] = useState("dashboard");
+  const [pkSettingsStatus, setPkSettingsStatus] = useState("");
+  const [resetStatus, setResetStatus] = useState("");
   const completed = teams.filter((team) => scores[team.id]);
   const mainRanking = sortTeamsForResults(teams);
   const pkNeeds = completed.length === teams.length ? pkNeededForMain(completed, awardCutoff, pkPolicy) : [];
   const pkTeamIds = new Set(pkNeeds.flatMap((need) => need.teamIds));
   const pkTeams = teams.filter((team) => pkTeamIds.has(team.id)).sort((a, b) => a.order - b.order);
+
+  const savePkSettings = async () => {
+    if (!window.confirm(`ยืนยันบันทึกตั้งค่า PK ของ ${LEVEL_LABELS[levelId]} หรือไม่?`)) return;
+    const pkConfigByLevel = {
+      ...(settings.pkConfigByLevel || {}),
+      [levelId]: { awardCutoff, pkPolicy },
+    };
+    await onSaveSettings({ pkConfigByLevel });
+    setPkSettingsStatus("บันทึกตั้งค่า PK แล้ว");
+  };
+
+  const resetLevelScores = async () => {
+    setResetStatus("");
+    try {
+      const didReset = await onResetScores();
+      if (didReset) setResetStatus("รีเซ็ตคะแนนระดับนี้แล้ว พร้อมให้กรรมการทดสอบใหม่");
+    } catch (error) {
+      setResetStatus(error.message || "รีเซ็ตคะแนนไม่สำเร็จ");
+    }
+  };
 
   return (
     <section className="stack">
@@ -630,7 +707,10 @@ function AdminPage({ levelId, teams, scores, auditLogs, settings, isCloudReady, 
             <div className="form-grid">
               <label>
                 ให้รางวัลถึงอันดับที่
-                <select value={awardCutoff} onChange={(event) => setAwardCutoff(Number(event.target.value))}>
+                <select value={awardCutoff} onChange={(event) => {
+                  setAwardCutoff(Number(event.target.value));
+                  setPkSettingsStatus("");
+                }}>
                   {Array.from({ length: 18 }, (_, index) => index + 3).map((value) => (
                     <option key={value} value={value}>{value}</option>
                   ))}
@@ -638,11 +718,30 @@ function AdminPage({ levelId, teams, scores, auditLogs, settings, isCloudReady, 
               </label>
               <label>
                 Mode
-                <select value={pkPolicy} onChange={(event) => setPkPolicy(event.target.value)}>
+                <select value={pkPolicy} onChange={(event) => {
+                  setPkPolicy(event.target.value);
+                  setPkSettingsStatus("");
+                }}>
                   <option value={PK_POLICY.podiumCutoff}>Podium + Award Cutoff</option>
                   <option value={PK_POLICY.exactRanking}>Exact Ranking 1-N</option>
                 </select>
               </label>
+            </div>
+            <div className="setup-actions">
+              <p className="muted">{pkSettingsStatus || "เปลี่ยนค่าแล้วต้องกดบันทึก เพื่อให้ admin เปิดใหม่แล้วยังใช้ค่าเดิม"}</p>
+              <button onClick={savePkSettings}>บันทึกตั้งค่า PK</button>
+            </div>
+          </section>
+
+          <section className="panel reset-panel">
+            <div>
+              <p className="eyebrow">Test Reset</p>
+              <h2>รีเซ็ตคะแนน {LEVEL_LABELS[levelId]}</h2>
+            </div>
+            <p className="muted">ใช้สำหรับวันทดสอบหรือก่อนเริ่มจริง ล้างเฉพาะคะแนนรอบแรกของระดับนี้ รายชื่อทีมและชื่อกรรมการยังอยู่เหมือนเดิม</p>
+            <div className="setup-actions">
+              <p className={resetStatus.includes("ไม่สำเร็จ") ? "danger" : "muted"}>{resetStatus || `มีคะแนนแล้ว ${completed.length}/${teams.length} ทีม`}</p>
+              <button className="danger-button" disabled={completed.length === 0} onClick={resetLevelScores}>รีเซ็ตคะแนนระดับนี้</button>
             </div>
           </section>
 

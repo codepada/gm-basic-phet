@@ -49,6 +49,10 @@ button.ghost {
   background: #6b7773;
 }
 
+button.danger-button {
+  background: var(--red);
+}
+
 .app-shell {
   width: min(980px, 100%);
   min-height: 100dvh;

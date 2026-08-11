@@ -251,6 +251,39 @@ export async function saveSettings(settings, user) {
   await setDoc(settingsRef(), { ...settings, updatedAt: serverTimestamp(), updatedBy: user?.uid || "admin" }, { merge: true });
 }
 
+export async function resetLevelMainScores(levelId, user, reason = "admin reset main scores") {
+  const [scoreSnapshot, teamSnapshot] = await Promise.all([
+    getDocs(mainScoresCol(levelId)),
+    getDocs(teamsCol(levelId)),
+  ]);
+  const batch = writeBatch(db);
+
+  scoreSnapshot.docs.forEach((docSnap) => {
+    batch.delete(mainScoreRef(levelId, docSnap.id));
+  });
+  teamSnapshot.docs.forEach((docSnap) => {
+    batch.set(teamRef(levelId, docSnap.id), {
+      status: "pending",
+      mainTotal: null,
+      lock: null,
+      updatedAt: serverTimestamp(),
+      updatedBy: user?.uid || "admin",
+    }, { merge: true });
+  });
+  batch.set(doc(auditLogsCol(levelId)), {
+    levelId,
+    judge: user?.uid || "admin",
+    judgeRole: "admin",
+    action: "mainScores.reset",
+    before: { scoreCount: scoreSnapshot.size },
+    after: { scoreCount: 0 },
+    reason,
+    createdAt: serverTimestamp(),
+  });
+
+  await batch.commit();
+}
+
 export async function backupNow(user) {
   const levels = {};
   for (const levelId of ["el", "jh", "sh"]) {
