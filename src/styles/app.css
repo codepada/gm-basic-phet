@@ -320,7 +320,8 @@ textarea {
 }
 
 .device-step,
-.summary-step {
+.summary-step,
+.shot-summary-step {
   grid-template-rows: auto auto minmax(0, 1fr);
   align-content: start;
 }
@@ -378,7 +379,20 @@ textarea {
 }
 
 .phase-score .score-section {
-  padding-top: 2px;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  padding-top: 0;
+}
+
+.phase-operation .score-section {
+  align-content: stretch;
+}
+
+.phase-operation .choice {
+  min-height: 66px;
+}
+
+.phase-score .result-grid {
+  min-height: 100%;
 }
 
 .score-section h3 {
@@ -459,6 +473,19 @@ textarea {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
+}
+
+.shot-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  height: 100%;
+  align-content: stretch;
+}
+
+.shot-summary-grid .metric {
+  min-height: 92px;
+  align-content: center;
 }
 
 .ball-card {
@@ -796,7 +823,28 @@ textarea {
   }
 
   .result-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .phase-operation .choice {
+    min-height: 62px;
+  }
+
+  .phase-score .ball-card {
+    min-height: 128px;
+    align-content: center;
+  }
+
+  .shot-summary-grid {
+    gap: 8px;
+  }
+
+  .shot-summary-grid .metric {
+    min-height: 96px;
+  }
+
+  .summary-step .summary-cards .metric {
+    min-height: 78px;
   }
 
   .sticky-total {
@@ -879,6 +927,18 @@ textarea {
   .phase-position .score-section > .choice-grid .choice,
   .phase-distance .score-section > .choice-grid .choice {
     min-height: 104px;
+  }
+
+  .phase-operation .choice {
+    min-height: 48px;
+  }
+
+  .phase-score .ball-card {
+    min-height: 96px;
+  }
+
+  .shot-summary-grid .metric {
+    min-height: 72px;
   }
 
   .sticky-total {

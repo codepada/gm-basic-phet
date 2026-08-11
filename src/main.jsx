@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { LEVELS, LEVEL_LABELS, PK_POLICY, TARGETS } from "./core/constants.js";
 import { mainScore, missionScore, smoothnessReady, smoothnessScore } from "./core/scoring.js";
 import { pkNeededForMain } from "./core/pk.js";
+import { nextUnscoredTeam } from "./core/teams.js";
 import { sampleTeams } from "./data/sampleTeams.js";
 import "./styles/app.css";
 
@@ -59,7 +60,11 @@ function App() {
       updatedAt: new Date().toISOString(),
       updatedBy: role,
     };
-    setScores((current) => ({ ...current, [team.id]: after }));
+    const nextScores = { ...scores, [team.id]: after };
+    const currentTeams = teamsByLevel[levelId] || [];
+    const nextTeam = nextUnscoredTeam(currentTeams, nextScores, team.id);
+
+    setScores(nextScores);
     setTeamsByLevel((current) => ({
       ...current,
       [levelId]: current[levelId].map((item) => (item.id === team.id ? { ...item, status: "main-complete", mainTotal: breakdown.total } : item)),
@@ -78,11 +83,7 @@ function App() {
       },
       ...current,
     ]);
-    const scoredIds = new Set(Object.keys(scores));
-    scoredIds.add(team.id);
-    const currentIndex = teams.findIndex((item) => item.id === team.id);
-    const nextTeam = teams.slice(currentIndex + 1).find((item) => !scoredIds.has(item.id));
-    setSelectedTeam(nextTeam ?? null);
+    setSelectedTeam(nextTeam ? { ...nextTeam } : null);
   };
 
   if (selectedTeam) {
@@ -283,8 +284,7 @@ function ScoreWizard({ team, existing, onCancel, onSave }) {
   const currentStepReady = wizardStepReady(activeStep, deviceCount, shots);
   const allShotsReady = Number.isInteger(deviceCount) && shots.every((shot, index) => shotReady(shot, index));
   const firstIncompleteStep = findFirstIncompleteStep(steps, deviceCount, shots);
-  const reasonMissing = Boolean(existing && !reason.trim());
-  const saveDisabled = !allShotsReady || reasonMissing;
+  const saveDisabled = !allShotsReady;
 
   const updateShot = (index, patch) => {
     setShots((current) => current.map((shot, shotIndex) => (shotIndex === index ? { ...shot, ...patch } : shot)));
@@ -309,6 +309,13 @@ function ScoreWizard({ team, existing, onCancel, onSave }) {
           index={activeStep.shotIndex}
           shot={shots[activeStep.shotIndex]}
           onChange={(patch) => updateShot(activeStep.shotIndex, patch)}
+        />
+      ) : null}
+      {activeStep.type === "shotSummary" ? (
+        <ShotSummaryStep
+          index={activeStep.shotIndex}
+          shot={shots[activeStep.shotIndex]}
+          breakdown={breakdown.shots[activeStep.shotIndex]}
         />
       ) : null}
       {activeStep.type === "summary" ? (
@@ -337,7 +344,7 @@ function ScoreWizard({ team, existing, onCancel, onSave }) {
             <button disabled={!currentStepReady} onClick={() => setStep((current) => Math.min(steps.length - 1, current + 1))}>ถัดไป</button>
           )}
           {isLastStep && saveDisabled ? (
-            <span className="save-hint">{reasonMissing ? "ใส่เหตุผลการแก้คะแนนก่อน" : `ยังไม่ครบ: ${firstIncompleteStep?.step.title}`}</span>
+            <span className="save-hint">ยังไม่ครบ: {firstIncompleteStep?.step.title}</span>
           ) : null}
         </div>
       </section>
@@ -351,6 +358,7 @@ function buildWizardSteps() {
     { type: "shot", shotIndex, phase: "distance", shortLabel: `${shotIndex + 1}.2`, title: `ยิงครั้งที่ ${shotIndex + 1}: ระยะยิง` },
     { type: "shot", shotIndex, phase: "operation", shortLabel: `${shotIndex + 1}.3`, title: `ยิงครั้งที่ ${shotIndex + 1}: การทำงาน` },
     { type: "shot", shotIndex, phase: "score", shortLabel: `${shotIndex + 1}.4`, title: `ยิงครั้งที่ ${shotIndex + 1}: คะแนนพื้นที่` },
+    { type: "shotSummary", shotIndex, shortLabel: `${shotIndex + 1}.ส`, title: `สรุปการยิงครั้งที่ ${shotIndex + 1}` },
   ]);
   return [
     { type: "device", shortLabel: "1", title: "เลือกจำนวนอุปกรณ์" },
@@ -384,12 +392,19 @@ function WizardProgress({ step, steps, setStep }) {
 function wizardStepReady(step, deviceCount, shots) {
   if (step.type === "summary") return true;
   if (step.type === "device") return Number.isInteger(deviceCount);
+  if (step.type === "shotSummary") return shotReady(shots[step.shotIndex], step.shotIndex);
   const shot = shots[step.shotIndex];
   if (step.phase === "position") return shot?.target === TARGETS.launcher || shot?.target === TARGETS.point3;
   if (step.phase === "distance") return shot?.distancePassed === true || shot?.distancePassed === false;
   if (step.phase === "operation") return operationReady(shot, step.shotIndex);
   if (step.phase === "score") return scoreReady(shot);
   return false;
+}
+
+function targetLabel(target) {
+  if (target === TARGETS.launcher) return "เครื่องยิง";
+  if (target === TARGETS.point3) return "จุดที่ 3";
+  return "ยังไม่เลือก";
 }
 
 function findFirstIncompleteStep(steps, deviceCount, shots) {
@@ -461,7 +476,7 @@ function SummaryStep({ existing, reason, setReason, deviceCount, shots, breakdow
           const shotBreakdown = breakdown.shots[index];
           return (
             <div key={index}>
-              <span>ยิงครั้งที่ {index + 1} • {shot.target === TARGETS.launcher ? "เครื่องยิง" : shot.target === TARGETS.point3 ? "จุดที่ 3" : "ยังไม่เลือก"}</span>
+              <span>ยิงครั้งที่ {index + 1} • {targetLabel(shot.target)}</span>
               <strong>{shotBreakdown.total} คะแนน</strong>
             </div>
           );
@@ -477,10 +492,36 @@ function SummaryStep({ existing, reason, setReason, deviceCount, shots, breakdow
       {existing ? (
         <label>
           เหตุผลการแก้คะแนน
-          <textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={3} placeholder="จำเป็นเมื่อแก้คะแนน" />
-          {!reason.trim() ? <span className="danger">ต้องใส่เหตุผลก่อนบันทึกการแก้คะแนน</span> : null}
+          <textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={3} placeholder="ถ้ามี" />
         </label>
       ) : null}
+    </section>
+  );
+}
+
+function ShotSummaryStep({ index, shot, breakdown }) {
+  return (
+    <section className="panel scoring-step shot-summary-step">
+      <div className="shot-title">
+        <div>
+          <p className="eyebrow">ตรวจสอบก่อนครั้งถัดไป</p>
+          <h2>สรุปการยิงครั้งที่ {index + 1}</h2>
+        </div>
+        <strong>{breakdown.total} คะแนน</strong>
+      </div>
+
+      <div className="shot-summary-grid">
+        <Metric label="ตำแหน่ง" value={targetLabel(shot.target)} />
+        <Metric label="ระยะยิง" value={shot.distancePassed ? "ผ่าน" : "ไม่ผ่าน"} />
+        {breakdown.smoothness !== null ? <Metric label="ราบรื่น" value={breakdown.smoothness} /> : null}
+        <Metric label="ออโต้" value={breakdown.auto} />
+        <Metric label="พื้นที่" value={breakdown.mission} />
+        <Metric label="รวมครั้งนี้" value={breakdown.total} />
+      </div>
+
+      <div className="step-note">
+        <p className="muted">กดถัดไปเพื่อไป{index < 2 ? `การยิงครั้งที่ ${index + 2}` : "สรุปรวมและบันทึก"}</p>
+      </div>
     </section>
   );
 }
