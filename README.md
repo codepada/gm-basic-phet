@@ -9,7 +9,7 @@ Mobile-first scoring app for Green Mech judges and admins.
 - `sh01`-`sh10` มัธยมศึกษาตอนปลาย
 - `admin` ผู้ดูแลระบบ
 
-Admin password is `wgm2026`. Judge IDs use `1234`.
+Login is checked by Firebase Auth. Judges still type the short ID, such as `sh01`; the app maps it to a Firebase Auth email internally.
 
 ## Local Development
 
@@ -21,7 +21,7 @@ npm run dev
 
 ## Firebase
 
-Create a Firebase project, enable Cloud Firestore, Storage, and Hosting. Put browser config values in `.env.local`; never commit service accounts.
+Create a Firebase project, enable Cloud Firestore, Firebase Auth Email/Password, Storage, and Hosting. Put browser config values in `.env.local`; never commit service accounts or passwords.
 
 Add these GitHub repository secrets:
    - `VITE_FIREBASE_API_KEY`
@@ -33,6 +33,16 @@ Add these GitHub repository secrets:
    - `FIREBASE_PROJECT_ID`
 Optional GitHub repository variable:
    - `VITE_COMPETITION_ID` defaults to `green-mech-2026`
+
+Add these GitHub repository secrets for seeding Firebase Auth users:
+   - `FIREBASE_ADMIN_PASSWORD`
+   - `FIREBASE_JUDGE_PASSWORD`
+
+Run the `Seed Firebase Auth Users` workflow after setting those secrets. It creates:
+   - `admin@gm-basic-phet.local`
+   - `el01`-`el10` as Firebase Auth emails
+   - `jh01`-`jh10` as Firebase Auth emails
+   - `sh01`-`sh10` as Firebase Auth emails
 
 The deployed GitHub Pages site uses Firestore as the shared score database.
 

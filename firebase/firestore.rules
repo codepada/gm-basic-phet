@@ -2,18 +2,60 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     match /competitions/{competitionId} {
-      allow read, write: if competitionId == 'green-mech-2026';
+      function signedIn() {
+        return competitionId == 'green-mech-2026' && request.auth != null && request.auth.token.email != null;
+      }
+
+      function isAdmin() {
+        return signedIn() && request.auth.token.email == 'admin@gm-basic-phet.local';
+      }
+
+      function isJudgeForLevel(levelId) {
+        return signedIn()
+          && (
+            (levelId == 'el' && request.auth.token.email.matches('^el[0-9][0-9]@gm-basic-phet\\.local$'))
+            || (levelId == 'jh' && request.auth.token.email.matches('^jh[0-9][0-9]@gm-basic-phet\\.local$'))
+            || (levelId == 'sh' && request.auth.token.email.matches('^sh[0-9][0-9]@gm-basic-phet\\.local$'))
+          );
+      }
+
+      allow read: if signedIn();
+      allow write: if isAdmin();
 
       match /users/{userId} {
-        allow read, write: if competitionId == 'green-mech-2026';
+        allow read: if signedIn();
+        allow write: if isAdmin();
       }
 
       match /settings/{docId} {
-        allow read, write: if competitionId == 'green-mech-2026';
+        allow read: if signedIn();
+        allow write: if isAdmin();
       }
 
-      match /levels/{levelId}/{collectionName}/{docId} {
-        allow read, write: if competitionId == 'green-mech-2026';
+      match /levels/{levelId}/teams/{docId} {
+        allow read: if signedIn();
+        allow write: if isAdmin() || isJudgeForLevel(levelId);
+      }
+
+      match /levels/{levelId}/mainScores/{docId} {
+        allow read: if signedIn();
+        allow write: if isAdmin() || isJudgeForLevel(levelId);
+      }
+
+      match /levels/{levelId}/pkSessions/{docId} {
+        allow read: if signedIn();
+        allow write: if isAdmin() || isJudgeForLevel(levelId);
+      }
+
+      match /levels/{levelId}/pkAttempts/{docId} {
+        allow read: if signedIn();
+        allow write: if isAdmin() || isJudgeForLevel(levelId);
+      }
+
+      match /levels/{levelId}/auditLogs/{docId} {
+        allow read: if signedIn();
+        allow create: if signedIn();
+        allow update, delete: if isAdmin();
       }
     }
   }

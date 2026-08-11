@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from "firebase/auth";
 import {
   ADMIN_ID,
-  ADMIN_PASSWORD,
+  AUTH_EMAIL_DOMAIN,
   JUDGE_ACCOUNTS,
   JUDGE_IDS_BY_LEVEL,
   JUDGE_LEVEL_BY_ID,
-  JUDGE_PASSWORD,
   LEVELS,
   LEVEL_LABELS,
   LOGIN_IDS,
@@ -17,7 +17,7 @@ import { mainScore, missionScore, smoothnessReady, smoothnessScore } from "./cor
 import { pkNeededForMain } from "./core/pk.js";
 import { nextUnscoredTeam } from "./core/teams.js";
 import { sampleTeams } from "./data/sampleTeams.js";
-import { isFirebaseConfigured } from "./firebase/config.js";
+import { auth, isFirebaseConfigured } from "./firebase/config.js";
 import { listenMainScores, listenSettings, listenTeams, resetLevelMainScores, saveSettings, saveTeamSetup, submitMainScore } from "./firebase/services.js";
 import "./styles/app.css";
 
@@ -111,11 +111,20 @@ function pkRoundLabels(roundsByTeam, teamId) {
   return [...new Set(rounds.map(Number).filter(Boolean))].sort((a, b) => a - b).map((round) => `PK${round}`);
 }
 
+function loginEmailForId(id) {
+  return `${id.toLowerCase()}@${AUTH_EMAIL_DOMAIN}`;
+}
+
+function loginIdFromEmail(email) {
+  return email?.toLowerCase().endsWith(`@${AUTH_EMAIL_DOMAIN}`) ? email.split("@")[0] : "";
+}
+
 function App() {
   const [session, setSession] = useState(() => {
     const stored = readStoredValue(STORAGE_KEYS.session, null);
     return stored?.role && LOGIN_IDS.includes(stored.role) ? stored : null;
   });
+  const [authReady, setAuthReady] = useState(!isFirebaseConfigured);
   const [role, setRole] = useState(session?.role || "");
   const [levelId, setLevelId] = useState(session?.role && session.role !== ADMIN_ID ? JUDGE_LEVEL_BY_ID[session.role] || "el" : "el");
   const [teamsByLevel, setTeamsByLevel] = useState(() => readStoredValue(STORAGE_KEYS.teams, initialTeams));
@@ -169,7 +178,26 @@ function App() {
   }, [session]);
 
   useEffect(() => {
-    if (!isFirebaseConfigured) return undefined;
+    if (!isFirebaseConfigured || !auth) return undefined;
+    return onAuthStateChanged(auth, (user) => {
+      setAuthReady(true);
+      if (!user) {
+        setSession(null);
+        setRole("");
+        setSelectedTeam(null);
+        setSaveResult(null);
+        return;
+      }
+      const nextRole = loginIdFromEmail(user.email);
+      if (!LOGIN_IDS.includes(nextRole)) return;
+      setSession({ role: nextRole, uid: user.uid, email: user.email, at: new Date().toISOString() });
+      setRole(nextRole);
+      setLevelId(nextRole === ADMIN_ID ? "el" : JUDGE_LEVEL_BY_ID[nextRole] || "el");
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!isFirebaseConfigured || !session || !authReady) return undefined;
     const unsubscribe = listenSettings(
       (remoteSettings) => {
         setSettings((current) => ({ ...defaultSettings(), ...current, ...remoteSettings }));
@@ -180,10 +208,10 @@ function App() {
       },
     );
     return unsubscribe;
-  }, []);
+  }, [authReady, session]);
 
   useEffect(() => {
-    if (!isFirebaseConfigured) return undefined;
+    if (!isFirebaseConfigured || !session || !authReady) return undefined;
     setSyncStatus("เชื่อมฐานข้อมูลกลางแล้ว");
     setSyncError("");
     const unsubscribe = listenTeams(
@@ -204,10 +232,10 @@ function App() {
       },
     );
     return unsubscribe;
-  }, [levelId]);
+  }, [authReady, levelId, session]);
 
   useEffect(() => {
-    if (!isFirebaseConfigured) return undefined;
+    if (!isFirebaseConfigured || !session || !authReady) return undefined;
     const unsubscribe = listenMainScores(
       levelId,
       (remoteScores) => {
@@ -227,7 +255,7 @@ function App() {
       },
     );
     return unsubscribe;
-  }, [levelId]);
+  }, [authReady, levelId, session]);
 
   const saveMainScore = async (team, draft, reason = "") => {
     const before = scores[team.id] || null;
@@ -409,22 +437,29 @@ function App() {
     return true;
   };
 
-  const handleLogin = ({ id, password }) => {
-    const expectedPassword = id === ADMIN_ID ? ADMIN_PASSWORD : JUDGE_PASSWORD;
-    if (password !== expectedPassword) throw new Error("รหัสไม่ถูกต้อง");
-    setSession({ role: id, at: new Date().toISOString() });
-    setRole(id);
-    setLevelId(id === ADMIN_ID ? "el" : JUDGE_LEVEL_BY_ID[id] || "el");
+  const handleLogin = async ({ id, password }) => {
+    const cleanId = id.toLowerCase();
+    if (!LOGIN_IDS.includes(cleanId)) throw new Error("ไม่พบ ID นี้");
+    if (!isFirebaseConfigured || !auth) throw new Error("Firebase Auth ยังไม่พร้อม");
+    const credential = await signInWithEmailAndPassword(auth, loginEmailForId(cleanId), password);
+    setSession({ role: cleanId, uid: credential.user.uid, email: credential.user.email, at: new Date().toISOString() });
+    setRole(cleanId);
+    setLevelId(cleanId === ADMIN_ID ? "el" : JUDGE_LEVEL_BY_ID[cleanId] || "el");
     setSelectedTeam(null);
     setSaveResult(null);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    if (auth) await signOut(auth);
     setSession(null);
     setRole("");
     setSelectedTeam(null);
     setSaveResult(null);
   };
+
+  if (!authReady) {
+    return <LoadingPage message="กำลังตรวจสอบการเข้าสู่ระบบ..." />;
+  }
 
   if (!session) {
     return <LoginPage onLogin={handleLogin} />;
@@ -495,14 +530,21 @@ function LoginPage({ onLogin }) {
   const [id, setId] = useState("admin");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
     setError("");
+    setIsSubmitting(true);
     try {
-      onLogin({ id, password });
+      await onLogin({ id, password });
     } catch (loginError) {
-      setError(loginError.message || "เข้าสู่ระบบไม่สำเร็จ");
+      const message = loginError.code === "auth/invalid-credential" || loginError.code === "auth/wrong-password"
+        ? "ID หรือรหัสไม่ถูกต้อง"
+        : loginError.message || "เข้าสู่ระบบไม่สำเร็จ";
+      setError(message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -531,13 +573,26 @@ function LoginPage({ onLogin }) {
             type="password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            placeholder={id === ADMIN_ID ? ADMIN_PASSWORD : JUDGE_PASSWORD}
+            placeholder="กรอกรหัส"
           />
         </label>
 
         {error ? <p className="danger login-error">{error}</p> : null}
-        <button type="submit">เข้าสู่ระบบ</button>
+        <button type="submit" disabled={isSubmitting}>{isSubmitting ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}</button>
       </form>
+    </main>
+  );
+}
+
+function LoadingPage({ message }) {
+  return (
+    <main className="login-shell">
+      <section className="panel login-card">
+        <div>
+          <p className="eyebrow">Green Mech Scoring</p>
+          <h1>{message}</h1>
+        </div>
+      </section>
     </main>
   );
 }

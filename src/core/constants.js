@@ -8,8 +8,7 @@ export const LEVEL_LABELS = Object.fromEntries(LEVELS.map((level) => [level.id, 
 export const LEVEL_SHORT_LABELS = Object.fromEntries(LEVELS.map((level) => [level.id, level.shortLabel]));
 
 export const ADMIN_ID = "admin";
-export const ADMIN_PASSWORD = "wgm2026";
-export const JUDGE_PASSWORD = "1234";
+export const AUTH_EMAIL_DOMAIN = "gm-basic-phet.local";
 
 export const JUDGE_IDS_BY_LEVEL = {
   el: Array.from({ length: 10 }, (_, index) => `el${String(index + 1).padStart(2, "0")}`),

@@ -1,0 +1,18 @@
+name: Seed Firebase Auth Users
+
+on:
+  workflow_dispatch:
+
+jobs:
+  seed-auth-users:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/seed-auth-users.mjs
+        env:
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          FIREBASE_ADMIN_PASSWORD: ${{ secrets.FIREBASE_ADMIN_PASSWORD }}
+          FIREBASE_JUDGE_PASSWORD: ${{ secrets.FIREBASE_JUDGE_PASSWORD }}
