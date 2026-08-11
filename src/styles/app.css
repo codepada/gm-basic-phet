@@ -392,7 +392,23 @@ textarea {
 }
 
 .phase-score .result-grid {
+  height: 100%;
   min-height: 100%;
+  align-content: stretch;
+  align-items: stretch;
+}
+
+.phase-score .ball-card {
+  height: 100%;
+  align-content: stretch;
+}
+
+.phase-score .ball-card .choice-grid {
+  height: 100%;
+}
+
+.phase-score .ball-card .choice {
+  min-height: 78px;
 }
 
 .score-section h3 {
@@ -831,8 +847,12 @@ textarea {
   }
 
   .phase-score .ball-card {
-    min-height: 128px;
+    min-height: 150px;
     align-content: center;
+  }
+
+  .phase-score .ball-card .choice {
+    min-height: 64px;
   }
 
   .shot-summary-grid {
@@ -934,7 +954,11 @@ textarea {
   }
 
   .phase-score .ball-card {
-    min-height: 96px;
+    min-height: 112px;
+  }
+
+  .phase-score .ball-card .choice {
+    min-height: 48px;
   }
 
   .shot-summary-grid .metric {
