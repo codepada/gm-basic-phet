@@ -1,44 +1,19 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn() {
-      return request.auth != null;
-    }
-
-    function userRole() {
-      return get(/databases/$(database)/documents/competitions/green-mech-2026/users/$(request.auth.uid)).data.role;
-    }
-
-    function isAdmin() {
-      return signedIn() && userRole() == 'admin';
-    }
-
-    function isJudgeFor(levelId) {
-      return signedIn() && userRole() == levelId;
-    }
-
-    function testMode() {
-      return signedIn();
-    }
-
     match /competitions/{competitionId} {
-      allow read: if testMode();
-      allow write: if testMode() || isAdmin();
+      allow read, write: if competitionId == 'green-mech-2026';
 
       match /users/{userId} {
-        allow read: if testMode();
-        allow write: if testMode() || isAdmin();
+        allow read, write: if competitionId == 'green-mech-2026';
       }
 
       match /settings/{docId} {
-        allow read: if testMode();
-        allow write: if testMode() || isAdmin();
+        allow read, write: if competitionId == 'green-mech-2026';
       }
 
       match /levels/{levelId}/{collectionName}/{docId} {
-        allow read: if testMode();
-        allow create, update: if testMode() || isAdmin() || isJudgeFor(levelId);
-        allow delete: if testMode() || isAdmin();
+        allow read, write: if competitionId == 'green-mech-2026';
       }
     }
   }

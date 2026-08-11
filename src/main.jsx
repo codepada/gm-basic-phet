@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { signInAnonymously } from "firebase/auth";
 import { LEVELS, LEVEL_LABELS, PK_POLICY, TARGETS } from "./core/constants.js";
 import { mainScore, missionScore, smoothnessReady, smoothnessScore } from "./core/scoring.js";
 import { pkNeededForMain } from "./core/pk.js";
 import { nextUnscoredTeam } from "./core/teams.js";
 import { sampleTeams } from "./data/sampleTeams.js";
-import { auth, isFirebaseConfigured } from "./firebase/config.js";
+import { isFirebaseConfigured } from "./firebase/config.js";
 import { listenMainScores, listenTeams, saveTeamSetup, submitMainScore } from "./firebase/services.js";
 import "./styles/app.css";
 
@@ -67,8 +66,7 @@ function App() {
   const [awardCutoff, setAwardCutoff] = useState(6);
   const [pkPolicy, setPkPolicy] = useState(PK_POLICY.podiumCutoff);
   const [auditLogs, setAuditLogs] = useState(() => readStoredValue(STORAGE_KEYS.auditLogs, []));
-  const [firebaseUser, setFirebaseUser] = useState(null);
-  const [syncStatus, setSyncStatus] = useState(isFirebaseConfigured ? "กำลังต่อ Firebase..." : "ยังไม่เชื่อมฐานข้อมูลกลาง");
+  const [syncStatus, setSyncStatus] = useState(isFirebaseConfigured ? "เชื่อมฐานข้อมูลกลางแล้ว" : "ยังไม่เชื่อมฐานข้อมูลกลาง");
   const [syncError, setSyncError] = useState("");
   const [setupStatus, setSetupStatus] = useState("");
 
@@ -98,26 +96,8 @@ function App() {
 
   useEffect(() => {
     if (!isFirebaseConfigured) return undefined;
-    let active = true;
-    signInAnonymously(auth)
-      .then((credential) => {
-        if (!active) return;
-        setFirebaseUser(credential.user);
-        setSyncStatus("ต่อ Firebase แล้ว");
-        setSyncError("");
-      })
-      .catch((error) => {
-        if (!active) return;
-        setSyncStatus("Firebase ต่อไม่ได้");
-        setSyncError(error.message);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!isFirebaseConfigured || !firebaseUser) return undefined;
+    setSyncStatus("เชื่อมฐานข้อมูลกลางแล้ว");
+    setSyncError("");
     const unsubscribe = listenTeams(
       levelId,
       (remoteTeams) => {
@@ -136,10 +116,10 @@ function App() {
       },
     );
     return unsubscribe;
-  }, [firebaseUser, levelId]);
+  }, [levelId]);
 
   useEffect(() => {
-    if (!isFirebaseConfigured || !firebaseUser) return undefined;
+    if (!isFirebaseConfigured) return undefined;
     const unsubscribe = listenMainScores(
       levelId,
       (remoteScores) => {
@@ -157,7 +137,7 @@ function App() {
       },
     );
     return unsubscribe;
-  }, [firebaseUser, levelId]);
+  }, [levelId]);
 
   const saveMainScore = async (team, draft, reason = "") => {
     const before = scores[team.id] || null;
@@ -200,11 +180,11 @@ function App() {
     setSelectedTeam(null);
     setSaveResult({ savedTeam: team, nextTeam: nextTeam ? { ...nextTeam } : null, total: breakdown.total });
 
-    if (isFirebaseConfigured && firebaseUser) {
+    if (isFirebaseConfigured) {
       setSyncStatus("กำลัง sync Firebase...");
       setSyncError("");
       try {
-        await submitMainScore(levelId, team.id, after, firebaseUser, reason);
+        await submitMainScore(levelId, team.id, after, { uid: role, role }, reason);
         setSyncStatus("sync Firebase สำเร็จ");
       } catch (error) {
         setSyncStatus("บันทึกในเครื่องแล้ว แต่ sync Firebase ไม่สำเร็จ");
@@ -245,11 +225,11 @@ function App() {
     });
     setSetupStatus("บันทึกตั้งค่าทีมในหน้านี้แล้ว");
 
-    if (isFirebaseConfigured && firebaseUser) {
+    if (isFirebaseConfigured) {
       setSyncStatus("กำลัง sync รายชื่อทีม...");
       setSyncError("");
       try {
-        await saveTeamSetup(levelId, nextTeams, firebaseUser);
+        await saveTeamSetup(levelId, nextTeams, { uid: role || "admin", role: "admin" });
         setSyncStatus("sync รายชื่อทีมสำเร็จ");
         setSetupStatus("บันทึกและ sync รายชื่อทีมสำเร็จ");
       } catch (error) {
@@ -316,7 +296,7 @@ function App() {
           teams={enrichedTeams}
           scores={scores}
           auditLogs={auditLogs}
-          isCloudReady={isFirebaseConfigured && syncStatus === "ต่อ Firebase แล้ว"}
+          isCloudReady={isFirebaseConfigured && !syncError}
           syncStatus={syncStatus}
           setupStatus={setupStatus}
           awardCutoff={awardCutoff}
