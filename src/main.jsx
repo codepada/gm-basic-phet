@@ -798,7 +798,7 @@ function AdminPage({ levelId, teams, scores, auditLogs, settings, isCloudReady, 
         </>
       ) : null}
 
-      {adminTab === "print" ? <PrintResultsPage levelId={levelId} teams={mainRanking} scores={scores} /> : null}
+      {adminTab === "print" ? <PrintResultsPage levelId={levelId} teams={mainRanking} scores={scores} pkRounds={pkRounds} /> : null}
 
       {adminTab === "dashboard" ? (
         <>
@@ -1103,7 +1103,7 @@ function PkAssignmentPanel({ levelId, pkTeams, pkNeeds, allTeamsComplete, assign
   );
 }
 
-function PrintResultsPage({ levelId, teams, scores }) {
+function PrintResultsPage({ levelId, teams, scores, pkRounds }) {
   const completed = teams.filter((team) => scores[team.id]);
   let scoredRank = 0;
   return (
@@ -1128,6 +1128,7 @@ function PrintResultsPage({ levelId, teams, scores }) {
             <th>ลำดับทีม</th>
             <th>โรงเรียน</th>
             <th>ทีม</th>
+            <th>PK</th>
             <th>คะแนน</th>
           </tr>
         </thead>
@@ -1141,6 +1142,7 @@ function PrintResultsPage({ levelId, teams, scores }) {
                 <td>{team.order}</td>
                 <td>{team.school || "-"}</td>
                 <td>{team.teamName || team.name}</td>
+                <td><PkBadges labels={pkRoundLabels(pkRounds, team.id)} /></td>
                 <td>{team.mainTotal ?? "-"}</td>
               </tr>
             );
