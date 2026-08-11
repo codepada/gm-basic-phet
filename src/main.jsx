@@ -55,6 +55,11 @@ const blankShot = (withSmoothness = false) => ({
   results: [null, null],
 });
 
+function fullTeamName(team) {
+  if (team.school && team.teamName) return `${team.school} - ${team.teamName}`;
+  return team.name;
+}
+
 function App() {
   const [session, setSession] = useState(() => readStoredValue(STORAGE_KEYS.session, null));
   const [role, setRole] = useState(session?.role || "");
@@ -144,7 +149,9 @@ function App() {
     const breakdown = mainScore(draft);
     const after = {
       ...draft,
-      teamName: team.name,
+      teamName: fullTeamName(team),
+      school: team.school || "",
+      displayTeamName: team.teamName || team.name,
       teamOrder: team.order,
       teamId: team.id,
       levelId,
@@ -169,7 +176,7 @@ function App() {
         at: new Date().toISOString(),
         judge: role,
         levelId,
-        team: team.name,
+        team: fullTeamName(team),
         action: before ? "mainScore.update" : "mainScore.create",
         before,
         after,
@@ -178,7 +185,7 @@ function App() {
       ...current,
     ]);
     setSelectedTeam(null);
-    setSaveResult({ savedTeam: team, nextTeam: nextTeam ? { ...nextTeam } : null, total: breakdown.total });
+    setSaveResult({ savedTeam: { ...team, name: fullTeamName(team) }, nextTeam: nextTeam ? { ...nextTeam, name: fullTeamName(nextTeam) } : null, total: breakdown.total });
 
     if (isFirebaseConfigured) {
       setSyncStatus("กำลัง sync Firebase...");
@@ -193,22 +200,39 @@ function App() {
     }
   };
 
-  const saveTeamsFromAdmin = async (names) => {
-    const cleanNames = names.map((name) => name.trim());
-    const filledNames = cleanNames.filter(Boolean);
-    const duplicates = filledNames.filter((name, index) => filledNames.indexOf(name) !== index);
-    if (filledNames.length !== cleanNames.length) throw new Error("ยังมีชื่อทีมว่าง");
+  const saveTeamsFromAdmin = async (entries) => {
+    const cleanEntries = entries.map((entry, index) => {
+      if (typeof entry === "string") {
+        const name = entry.trim();
+        return { order: index + 1, school: "", teamName: name, name };
+      }
+      const school = entry.school?.trim() || "";
+      const teamName = entry.teamName?.trim() || "";
+      return {
+        order: Number(entry.order) || index + 1,
+        school,
+        teamName,
+        name: school && teamName ? `${school} - ${teamName}` : teamName || school,
+      };
+    });
+    const filledEntries = cleanEntries.filter((entry) => entry.name);
+    const duplicates = filledEntries
+      .map((entry) => entry.name)
+      .filter((name, index, names) => names.indexOf(name) !== index);
+    if (filledEntries.length !== cleanEntries.length) throw new Error("ยังมีชื่อทีมหรือชื่อโรงเรียนว่าง");
     if (duplicates.length) throw new Error(`ชื่อทีมซ้ำ: ${[...new Set(duplicates)].join(", ")}`);
 
     const currentLevelTeams = teamsByLevel[levelId] || [];
     const currentIds = new Set(currentLevelTeams.map((team) => team.id));
-    const nextTeams = filledNames.map((name, index) => {
+    const nextTeams = filledEntries.map((entry, index) => {
       const id = `${levelId}-${index + 1}`;
       const score = scores[id];
       return {
         id,
-        name,
-        order: index + 1,
+        name: entry.name,
+        school: entry.school,
+        teamName: entry.teamName,
+        order: entry.order || index + 1,
         status: score ? "main-complete" : "pending",
         mainTotal: score?.breakdown?.total ?? null,
       };
@@ -425,7 +449,8 @@ function JudgePage({ teams, scores, onScore }) {
           <article key={team.id} className="team-row">
             <div className="team-order">{team.order}</div>
             <div className="team-main">
-              <strong>{team.name}</strong>
+              <strong>{team.teamName || team.name}</strong>
+              <span>{team.school || "ไม่ระบุโรงเรียน"}</span>
               <span>{scores[team.id] ? `ตรวจแล้ว • ยิงครบ 3 ครั้ง • ${scores[team.id].total} คะแนน` : "รอให้คะแนน"}</span>
             </div>
             <button onClick={() => onScore(team)}>{scores[team.id] ? "แก้คะแนน" : "เริ่มให้คะแนน"}</button>
@@ -463,7 +488,7 @@ function AdminPage({ levelId, teams, scores, auditLogs, isCloudReady, syncStatus
         <div className="ranking">
           {mainRanking.map((team, index) => (
             <div key={team.id}>
-              <span>{index + 1}. {team.name}</span>
+              <span>{index + 1}. {team.teamName || team.name}{team.school ? ` • ${team.school}` : ""}</span>
               <strong>{team.mainTotal ?? "-"} คะแนน</strong>
             </div>
           ))}
@@ -532,28 +557,68 @@ function AdminPage({ levelId, teams, scores, auditLogs, isCloudReady, syncStatus
 
 function TeamSetupPanel({ levelId, teams, status, onSave }) {
   const [count, setCount] = useState(teams.length);
-  const [names, setNames] = useState(() => teams.map((team) => team.name));
+  const [entries, setEntries] = useState(() => teams.map((team) => ({
+    order: team.order,
+    school: team.school || "",
+    teamName: team.teamName || team.name,
+  })));
+  const [importText, setImportText] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     setCount(teams.length);
-    setNames(teams.map((team) => team.name));
+    setEntries(teams.map((team) => ({
+      order: team.order,
+      school: team.school || "",
+      teamName: team.teamName || team.name,
+    })));
   }, [levelId, teams]);
 
-  const duplicates = useMemo(() => names.filter((name, index) => name.trim() && names.findIndex((item) => item.trim() === name.trim()) !== index), [names]);
-  const hasBlank = names.some((name) => !name.trim());
+  const names = useMemo(() => entries.map((entry) => `${entry.school.trim()} - ${entry.teamName.trim()}`.trim()), [entries]);
+  const duplicates = useMemo(() => names.filter((name, index) => name && names.indexOf(name) !== index), [names]);
+  const hasBlank = entries.some((entry) => !entry.school.trim() || !entry.teamName.trim());
 
   const updateCount = (nextCount) => {
     setCount(nextCount);
-    setNames((current) => Array.from({ length: nextCount }, (_, index) => current[index] || `ทีม ${index + 1}`));
+    setEntries((current) => Array.from({ length: nextCount }, (_, index) => current[index] || { order: index + 1, school: "", teamName: `ทีม ${index + 1}` }));
+  };
+
+  const updateEntry = (index, patch) => {
+    setEntries((current) => current.map((entry, entryIndex) => (entryIndex === index ? { ...entry, ...patch } : entry)));
+  };
+
+  const parseImportText = () => {
+    try {
+      const parsed = importText
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line, index) => {
+          const parts = line.split(/\t+/).map((part) => part.trim()).filter(Boolean);
+          if (parts.length >= 3 && /^\d+$/.test(parts[0])) {
+            return { order: Number(parts[0]), school: parts[1], teamName: parts.slice(2).join(" ") };
+          }
+          const fallbackParts = line.split(/\s{2,}/).map((part) => part.trim()).filter(Boolean);
+          if (fallbackParts.length >= 3 && /^\d+$/.test(fallbackParts[0])) {
+            return { order: Number(fallbackParts[0]), school: fallbackParts[1], teamName: fallbackParts.slice(2).join(" ") };
+          }
+          throw new Error(`อ่านบรรทัดที่ ${index + 1} ไม่ได้`);
+        })
+        .sort((a, b) => a.order - b.order);
+      setEntries(parsed);
+      setCount(parsed.length);
+      setError("");
+    } catch (parseError) {
+      setError(parseError.message || "แปลงรายชื่อไม่สำเร็จ");
+    }
   };
 
   const handleSave = async () => {
     setIsSaving(true);
     setError("");
     try {
-      await onSave(names);
+      await onSave(entries);
     } catch (saveError) {
       setError(saveError.message || "บันทึกรายชื่อทีมไม่สำเร็จ");
     } finally {
@@ -578,11 +643,23 @@ function TeamSetupPanel({ levelId, teams, status, onSave }) {
         </label>
       </div>
 
+      <label className="import-box">
+        วางรายชื่อจาก Excel/ชีต
+        <textarea
+          value={importText}
+          onChange={(event) => setImportText(event.target.value)}
+          placeholder="1	โรงเรียนวังโป่งพิทยาคม	ทีม Sigma Promax"
+          rows={5}
+        />
+        <button type="button" className="ghost" disabled={!importText.trim()} onClick={parseImportText}>แปลงรายชื่อ</button>
+      </label>
+
       <div className="team-name-grid">
-        {names.map((name, index) => (
+        {entries.map((entry, index) => (
           <label key={`${levelId}-${index + 1}`}>
             ทีมที่ {index + 1}
-            <input value={name} onChange={(event) => setNames((current) => current.map((item, itemIndex) => (itemIndex === index ? event.target.value : item)))} />
+            <input value={entry.school} onChange={(event) => updateEntry(index, { school: event.target.value })} placeholder="โรงเรียน" />
+            <input value={entry.teamName} onChange={(event) => updateEntry(index, { teamName: event.target.value })} placeholder="ชื่อทีม" />
           </label>
         ))}
       </div>
@@ -633,7 +710,8 @@ function ScoreWizard({ team, existing, onCancel, onSave }) {
     <main className="app-shell wizard-shell">
       <header className="topbar">
         <div>
-          <p className="eyebrow team-heading">{team.name}</p>
+          <p className="eyebrow team-heading">{team.teamName || team.name}</p>
+          {team.school ? <p className="school-heading">{team.school}</p> : null}
           <h1>ให้คะแนนรอบแรก</h1>
         </div>
         <button className="ghost" onClick={onCancel}>ปิด</button>

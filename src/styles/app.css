@@ -268,6 +268,26 @@ h2 {
   font-weight: 800;
 }
 
+.import-box {
+  gap: 8px;
+}
+
+.import-box textarea {
+  min-height: 118px;
+  font-weight: 700;
+}
+
+.import-box button {
+  min-height: 50px;
+}
+
+.school-heading {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
 .setup-actions {
   display: grid;
   gap: 8px;

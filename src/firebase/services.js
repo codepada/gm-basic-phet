@@ -77,6 +77,8 @@ export async function saveTeamSetup(levelId, teams, user) {
   teams.forEach((team) => {
     batch.set(teamRef(levelId, team.id), {
       name: team.name,
+      school: team.school || "",
+      teamName: team.teamName || team.name,
       order: team.order,
       status: team.status || "pending",
       mainTotal: team.mainTotal ?? null,
@@ -163,6 +165,8 @@ export async function submitMainScore(levelId, teamId, scoreDraft, user, reason 
     transaction.set(ref, payload, { merge: true });
     transaction.set(teamDocRef, {
       name: scoreDraft.teamName || teamId,
+      school: scoreDraft.school || "",
+      teamName: scoreDraft.displayTeamName || scoreDraft.teamName || teamId,
       order: scoreDraft.teamOrder || 999,
       status: "main-complete",
       mainTotal: total.total,
