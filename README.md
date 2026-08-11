@@ -21,6 +21,25 @@ npm run dev
 
 Create a Firebase project, enable Authentication, Cloud Firestore, Storage, and Hosting. Put browser config values in `.env.local`; never commit secrets or service accounts.
 
+For online testing before the login system is finished:
+
+1. Enable Firebase Authentication > Sign-in method > Anonymous.
+2. Add these GitHub repository secrets:
+   - `VITE_FIREBASE_API_KEY`
+   - `VITE_FIREBASE_AUTH_DOMAIN`
+   - `VITE_FIREBASE_PROJECT_ID`
+   - `VITE_FIREBASE_STORAGE_BUCKET`
+   - `VITE_FIREBASE_MESSAGING_SENDER_ID`
+   - `VITE_FIREBASE_APP_ID`
+   - `FIREBASE_PROJECT_ID`
+   - `FIREBASE_TOKEN` for manually deploying Firestore rules
+3. Optional GitHub repository variable:
+   - `VITE_COMPETITION_ID` defaults to `green-mech-2026`
+4. In GitHub repository settings, enable Pages with source `GitHub Actions`.
+5. Push to `main`; the site deploys from `.github/workflows/pages.yml`.
+
+The temporary Firestore rules allow signed-in anonymous users to read/write for testing. Lock these rules before real competition use.
+
 Deploy:
 
 ```bash
