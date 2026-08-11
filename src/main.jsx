@@ -1,12 +1,24 @@
 import { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { LEVELS, LEVEL_LABELS, PK_POLICY, TARGETS } from "./core/constants.js";
+import {
+  ADMIN_ID,
+  ADMIN_PASSWORD,
+  JUDGE_ACCOUNTS,
+  JUDGE_IDS_BY_LEVEL,
+  JUDGE_LEVEL_BY_ID,
+  JUDGE_PASSWORD,
+  LEVELS,
+  LEVEL_LABELS,
+  LOGIN_IDS,
+  PK_POLICY,
+  TARGETS,
+} from "./core/constants.js";
 import { mainScore, missionScore, smoothnessReady, smoothnessScore } from "./core/scoring.js";
 import { pkNeededForMain } from "./core/pk.js";
 import { nextUnscoredTeam } from "./core/teams.js";
 import { sampleTeams } from "./data/sampleTeams.js";
 import { isFirebaseConfigured } from "./firebase/config.js";
-import { listenMainScores, listenTeams, saveTeamSetup, submitMainScore } from "./firebase/services.js";
+import { listenMainScores, listenSettings, listenTeams, saveSettings, saveTeamSetup, submitMainScore } from "./firebase/services.js";
 import "./styles/app.css";
 
 const initialTeams = Object.fromEntries(
@@ -27,10 +39,8 @@ const STORAGE_KEYS = {
   scores: "gm-basic-phet.scores",
   auditLogs: "gm-basic-phet.auditLogs",
   session: "gm-basic-phet.session",
+  settings: "gm-basic-phet.settings",
 };
-
-const LOGIN_IDS = ["admin", "sci01", "sci02", "sci03"];
-const TEST_PASSWORD = "1234";
 
 function readStoredValue(key, fallback) {
   try {
@@ -43,6 +53,12 @@ function readStoredValue(key, fallback) {
 
 function writeStoredValue(key, value) {
   window.localStorage.setItem(key, JSON.stringify(value));
+}
+
+function defaultSettings() {
+  return {
+    judgeAssignments: Object.fromEntries(JUDGE_ACCOUNTS.map((account) => [account.id, { from: 1, to: 999, pkTeamOrder: "" }])),
+  };
 }
 
 const blankShot = (withSmoothness = false) => ({
@@ -60,12 +76,23 @@ function fullTeamName(team) {
   return team.name;
 }
 
+function teamWithinAssignment(team, assignment) {
+  if (!assignment) return true;
+  const from = Number(assignment.from) || 1;
+  const to = Number(assignment.to) || 999;
+  return team.order >= from && team.order <= to;
+}
+
 function App() {
-  const [session, setSession] = useState(() => readStoredValue(STORAGE_KEYS.session, null));
+  const [session, setSession] = useState(() => {
+    const stored = readStoredValue(STORAGE_KEYS.session, null);
+    return stored?.role && LOGIN_IDS.includes(stored.role) ? stored : null;
+  });
   const [role, setRole] = useState(session?.role || "");
-  const [levelId, setLevelId] = useState(session?.role && session.role !== "admin" ? session.role : "sci01");
+  const [levelId, setLevelId] = useState(session?.role && session.role !== ADMIN_ID ? JUDGE_LEVEL_BY_ID[session.role] || "el" : "el");
   const [teamsByLevel, setTeamsByLevel] = useState(() => readStoredValue(STORAGE_KEYS.teams, initialTeams));
   const [scores, setScores] = useState(() => readStoredValue(STORAGE_KEYS.scores, {}));
+  const [settings, setSettings] = useState(() => ({ ...defaultSettings(), ...readStoredValue(STORAGE_KEYS.settings, {}) }));
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [saveResult, setSaveResult] = useState(null);
   const [awardCutoff, setAwardCutoff] = useState(6);
@@ -81,6 +108,9 @@ function App() {
     mainTotal: scores[team.id]?.breakdown?.total ?? team.mainTotal,
     status: scores[team.id] ? "main-complete" : team.status,
   }));
+  const visibleTeams = role === ADMIN_ID
+    ? enrichedTeams
+    : enrichedTeams.filter((team) => teamWithinAssignment(team, settings.judgeAssignments?.[role]));
 
   useEffect(() => {
     writeStoredValue(STORAGE_KEYS.teams, teamsByLevel);
@@ -95,9 +125,27 @@ function App() {
   }, [auditLogs]);
 
   useEffect(() => {
+    writeStoredValue(STORAGE_KEYS.settings, settings);
+  }, [settings]);
+
+  useEffect(() => {
     if (session) writeStoredValue(STORAGE_KEYS.session, session);
     else window.localStorage.removeItem(STORAGE_KEYS.session);
   }, [session]);
+
+  useEffect(() => {
+    if (!isFirebaseConfigured) return undefined;
+    const unsubscribe = listenSettings(
+      (remoteSettings) => {
+        setSettings((current) => ({ ...defaultSettings(), ...current, ...remoteSettings }));
+      },
+      (error) => {
+        setSyncStatus("อ่านการมอบหมายจาก Firebase ไม่ได้");
+        setSyncError(error.message);
+      },
+    );
+    return unsubscribe;
+  }, []);
 
   useEffect(() => {
     if (!isFirebaseConfigured) return undefined;
@@ -162,7 +210,9 @@ function App() {
       updatedBy: role,
     };
     const nextScores = { ...scores, [team.id]: after };
-    const currentTeams = teamsByLevel[levelId] || [];
+    const currentTeams = role === ADMIN_ID
+      ? teamsByLevel[levelId] || []
+      : (teamsByLevel[levelId] || []).filter((team) => teamWithinAssignment(team, settings.judgeAssignments?.[role]));
     const nextTeam = nextUnscoredTeam(currentTeams, nextScores, team.id);
 
     setScores(nextScores);
@@ -265,10 +315,11 @@ function App() {
   };
 
   const handleLogin = ({ id, password }) => {
-    if (password !== TEST_PASSWORD) throw new Error("รหัสไม่ถูกต้อง");
+    const expectedPassword = id === ADMIN_ID ? ADMIN_PASSWORD : JUDGE_PASSWORD;
+    if (password !== expectedPassword) throw new Error("รหัสไม่ถูกต้อง");
     setSession({ role: id, at: new Date().toISOString() });
     setRole(id);
-    if (id !== "admin") setLevelId(id);
+    setLevelId(id === ADMIN_ID ? "el" : JUDGE_LEVEL_BY_ID[id] || "el");
     setSelectedTeam(null);
     setSaveResult(null);
   };
@@ -306,20 +357,21 @@ function App() {
       <header className="topbar">
         <div>
           <p className="eyebrow">Green Mech Scoring</p>
-          <h1>{role === "admin" ? "Admin Dashboard" : `Judge ${role.toUpperCase()}`}</h1>
+          <h1>{role === ADMIN_ID ? "Admin Dashboard" : `Judge ${role.toUpperCase()}`}</h1>
         </div>
         <button className="ghost topbar-logout" onClick={handleLogout}>ออก</button>
       </header>
       {isFirebaseConfigured || syncError ? <SyncBanner status={syncStatus} error={syncError} /> : null}
 
-      {role === "admin" ? <LevelTabs levelId={levelId} setLevelId={setLevelId} /> : null}
+      {role === ADMIN_ID ? <LevelTabs levelId={levelId} setLevelId={setLevelId} /> : null}
 
-      {role === "admin" ? (
+      {role === ADMIN_ID ? (
         <AdminPage
           levelId={levelId}
           teams={enrichedTeams}
           scores={scores}
           auditLogs={auditLogs}
+          settings={settings}
           isCloudReady={isFirebaseConfigured && !syncError}
           syncStatus={syncStatus}
           setupStatus={setupStatus}
@@ -328,9 +380,13 @@ function App() {
           pkPolicy={pkPolicy}
           setPkPolicy={setPkPolicy}
           onSaveTeamSetup={saveTeamsFromAdmin}
+          onSaveSettings={async (nextSettings) => {
+            setSettings((current) => ({ ...current, ...nextSettings }));
+            if (isFirebaseConfigured) await saveSettings(nextSettings, { uid: ADMIN_ID });
+          }}
         />
       ) : (
-        <JudgePage teams={enrichedTeams} scores={scores} onScore={setSelectedTeam} />
+        <JudgePage teams={visibleTeams} scores={scores} assignment={settings.judgeAssignments?.[role]} onScore={setSelectedTeam} />
       )}
     </main>
   );
@@ -376,7 +432,7 @@ function LoginPage({ onLogin }) {
             type="password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            placeholder="1234"
+            placeholder={id === ADMIN_ID ? ADMIN_PASSWORD : JUDGE_PASSWORD}
           />
         </label>
 
@@ -436,7 +492,7 @@ function LevelTabs({ levelId, setLevelId }) {
   );
 }
 
-function JudgePage({ teams, scores, onScore }) {
+function JudgePage({ teams, scores, assignment, onScore }) {
   return (
     <section className="stack">
       <div className="summary-row">
@@ -444,6 +500,12 @@ function JudgePage({ teams, scores, onScore }) {
         <Metric label="จบแล้ว" value={teams.filter((team) => team.status === "main-complete").length} />
         <Metric label="ยังไม่จบ" value={teams.filter((team) => team.status !== "main-complete").length} />
       </div>
+      {assignment ? (
+        <section className="panel assignment-note">
+          <strong>ช่วงทีมที่รับผิดชอบ: {assignment.from || 1}-{assignment.to || 999}</strong>
+          {assignment.pkTeamOrder ? <span>PK ที่ได้รับมอบหมาย: ทีมลำดับ {assignment.pkTeamOrder}</span> : null}
+        </section>
+      ) : null}
       <div className="team-list">
         {teams.map((team) => (
           <article key={team.id} className="team-row">
@@ -461,7 +523,7 @@ function JudgePage({ teams, scores, onScore }) {
   );
 }
 
-function AdminPage({ levelId, teams, scores, auditLogs, isCloudReady, syncStatus, setupStatus, awardCutoff, setAwardCutoff, pkPolicy, setPkPolicy, onSaveTeamSetup }) {
+function AdminPage({ levelId, teams, scores, auditLogs, settings, isCloudReady, syncStatus, setupStatus, awardCutoff, setAwardCutoff, pkPolicy, setPkPolicy, onSaveTeamSetup, onSaveSettings }) {
   const completed = teams.filter((team) => scores[team.id]);
   const mainRanking = [...teams].sort((a, b) => (b.mainTotal ?? -1) - (a.mainTotal ?? -1));
   const pkNeeds = completed.length === teams.length ? pkNeededForMain(completed, awardCutoff, pkPolicy) : [];
@@ -475,6 +537,13 @@ function AdminPage({ levelId, teams, scores, auditLogs, isCloudReady, syncStatus
       </div>
 
       <TeamSetupPanel levelId={levelId} teams={teams} status={setupStatus} onSave={onSaveTeamSetup} />
+
+      <JudgeAssignmentPanel
+        levelId={levelId}
+        teams={teams}
+        assignments={settings.judgeAssignments || {}}
+        onSave={(judgeAssignments) => onSaveSettings({ judgeAssignments })}
+      />
 
       <section className="panel">
         <h2>{LEVEL_LABELS[levelId]} Main Summary</h2>
@@ -551,6 +620,69 @@ function AdminPage({ levelId, teams, scores, auditLogs, isCloudReady, syncStatus
           ))}
         </div>
       </section>
+    </section>
+  );
+}
+
+function JudgeAssignmentPanel({ levelId, teams, assignments, onSave }) {
+  const judgeIds = JUDGE_IDS_BY_LEVEL[levelId] || [];
+  const [draft, setDraft] = useState(() => ({ ...defaultSettings().judgeAssignments, ...assignments }));
+  const [status, setStatus] = useState("");
+
+  useEffect(() => {
+    setDraft({ ...defaultSettings().judgeAssignments, ...assignments });
+  }, [assignments, levelId]);
+
+  const updateJudge = (judgeId, patch) => {
+    setDraft((current) => ({
+      ...current,
+      [judgeId]: { ...current[judgeId], ...patch },
+    }));
+  };
+
+  const handleSave = async () => {
+    const nextAssignments = { ...assignments, ...draft };
+    await onSave(nextAssignments);
+    setStatus("บันทึกการมอบหมายแล้ว");
+  };
+
+  return (
+    <section className="panel assignment-panel">
+      <div>
+        <p className="eyebrow">Judge Assignment</p>
+        <h2>กำหนดทีมให้ ID กรรมการ</h2>
+      </div>
+      <div className="assignment-grid">
+        {judgeIds.map((judgeId) => {
+          const assignment = draft[judgeId] || { from: 1, to: teams.length || 1, pkTeamOrder: "" };
+          return (
+            <div key={judgeId} className="assignment-row">
+              <strong>{judgeId}</strong>
+              <label>
+                จากทีม
+                <input inputMode="numeric" type="number" min="1" max={teams.length || 999} value={assignment.from || ""} onChange={(event) => updateJudge(judgeId, { from: Number(event.target.value) })} />
+              </label>
+              <label>
+                ถึงทีม
+                <input inputMode="numeric" type="number" min="1" max={teams.length || 999} value={assignment.to || ""} onChange={(event) => updateJudge(judgeId, { to: Number(event.target.value) })} />
+              </label>
+              <label>
+                PK
+                <select value={assignment.pkTeamOrder || ""} onChange={(event) => updateJudge(judgeId, { pkTeamOrder: event.target.value ? Number(event.target.value) : "" })}>
+                  <option value="">ยังไม่มอบหมาย</option>
+                  {teams.map((team) => (
+                    <option key={team.id} value={team.order}>{team.order}. {team.teamName || team.name}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          );
+        })}
+      </div>
+      <div className="setup-actions">
+        <p className="muted">{status || "กำหนดช่วงทีมที่แต่ละ ID มองเห็น และเลือกทีม PK ได้ ID ละ 1 ทีม"}</p>
+        <button onClick={handleSave}>บันทึกการมอบหมาย</button>
+      </div>
     </section>
   );
 }

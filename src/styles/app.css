@@ -303,6 +303,45 @@ h2 {
   font-size: 1.02rem;
 }
 
+.assignment-panel {
+  gap: 14px;
+}
+
+.assignment-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.assignment-row {
+  display: grid;
+  grid-template-columns: 72px repeat(3, minmax(0, 1fr));
+  align-items: end;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+  background: #fbfcfc;
+}
+
+.assignment-row > strong {
+  min-height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: #e6efeb;
+  color: var(--green-dark);
+}
+
+.assignment-note {
+  gap: 4px;
+  padding: 10px;
+}
+
+.assignment-note span {
+  color: var(--muted);
+  font-weight: 800;
+}
+
 .team-list {
   display: grid;
   gap: 8px;
@@ -943,6 +982,10 @@ textarea {
 
   .panel-heading,
   .team-name-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .assignment-row {
     grid-template-columns: 1fr;
   }
 

@@ -38,6 +38,16 @@ export function listenMainScores(levelId, callback, onError) {
   );
 }
 
+export function listenSettings(callback, onError) {
+  return onSnapshot(
+    settingsRef(),
+    (snapshot) => {
+      callback(snapshot.exists() ? snapshot.data() : {});
+    },
+    onError,
+  );
+}
+
 export async function importTeams(levelId, names, user) {
   const cleanNames = names.map((name) => name.trim()).filter(Boolean);
   const duplicates = cleanNames.filter((name, index) => cleanNames.indexOf(name) !== index);
@@ -238,12 +248,12 @@ export async function addAudit(levelId, user, payload) {
 }
 
 export async function saveSettings(settings, user) {
-  await setDoc(settingsRef(), { ...settings, updatedAt: serverTimestamp(), updatedBy: user.uid }, { merge: true });
+  await setDoc(settingsRef(), { ...settings, updatedAt: serverTimestamp(), updatedBy: user?.uid || "admin" }, { merge: true });
 }
 
 export async function backupNow(user) {
   const levels = {};
-  for (const levelId of ["sci01", "sci02", "sci03"]) {
+  for (const levelId of ["el", "jh", "sh"]) {
     levels[levelId] = {};
     for (const [key, collectionFactory] of [
       ["teams", teamsCol],
