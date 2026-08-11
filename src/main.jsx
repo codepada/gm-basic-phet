@@ -53,7 +53,7 @@ const blankShot = (withSmoothness = false) => ({
 });
 
 function App() {
-  const [role, setRole] = useState("admin");
+  const [role, setRole] = useState("sci01");
   const [levelId, setLevelId] = useState("sci01");
   const [teamsByLevel, setTeamsByLevel] = useState(() => readStoredValue(STORAGE_KEYS.teams, initialTeams));
   const [scores, setScores] = useState(() => readStoredValue(STORAGE_KEYS.scores, {}));
@@ -167,13 +167,6 @@ function App() {
     const currentTeams = teamsByLevel[levelId] || [];
     const nextTeam = nextUnscoredTeam(currentTeams, nextScores, team.id);
 
-    if (isFirebaseConfigured && firebaseUser) {
-      setSyncStatus("กำลังบันทึก Firebase...");
-      setSyncError("");
-      await submitMainScore(levelId, team.id, after, firebaseUser, reason);
-      setSyncStatus("บันทึก Firebase สำเร็จ");
-    }
-
     setScores(nextScores);
     setTeamsByLevel((current) => ({
       ...current,
@@ -195,6 +188,18 @@ function App() {
     ]);
     setSelectedTeam(null);
     setSaveResult({ savedTeam: team, nextTeam: nextTeam ? { ...nextTeam } : null, total: breakdown.total });
+
+    if (isFirebaseConfigured && firebaseUser) {
+      setSyncStatus("กำลัง sync Firebase...");
+      setSyncError("");
+      try {
+        await submitMainScore(levelId, team.id, after, firebaseUser, reason);
+        setSyncStatus("sync Firebase สำเร็จ");
+      } catch (error) {
+        setSyncStatus("บันทึกในเครื่องแล้ว แต่ sync Firebase ไม่สำเร็จ");
+        setSyncError(error.message);
+      }
+    }
   };
 
   if (saveResult) {
