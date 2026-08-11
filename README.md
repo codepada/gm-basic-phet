@@ -5,7 +5,7 @@ Mobile-first scoring app for Green Mech judges and admins.
 ## Roles
 
 - `el01`, `el02`, `el03` ประถมศึกษา
-- `jh01`, `jh02`, `js03`, `jh04` มัธยมศึกษาตอนต้น
+- `jh01`, `jh02`, `jh03`, `jh04` มัธยมศึกษาตอนต้น
 - `sh01`, `sh02`, `sh03`, `sh04` มัธยมศึกษาตอนปลาย
 - `admin` ผู้ดูแลระบบ
 

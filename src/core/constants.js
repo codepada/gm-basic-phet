@@ -12,7 +12,7 @@ export const JUDGE_PASSWORD = "1234";
 
 export const JUDGE_IDS_BY_LEVEL = {
   el: ["el01", "el02", "el03"],
-  jh: ["jh01", "jh02", "js03", "jh04"],
+  jh: ["jh01", "jh02", "jh03", "jh04"],
   sh: ["sh01", "sh02", "sh03", "sh04"],
 };
 
