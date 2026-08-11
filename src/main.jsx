@@ -355,6 +355,8 @@ function App() {
     const currentTeams = teamsByLevel[levelId] || [];
     const levelLabel = LEVEL_LABELS[levelId];
     if (!window.confirm(`ยืนยันรีเซ็ตคะแนน ${levelLabel} หรือไม่?\nคะแนนที่กรรมการบันทึกไว้ในระดับนี้จะถูกลบทั้งหมด เพื่อเริ่มทดสอบใหม่`)) return false;
+    const confirmText = window.prompt(`ยืนยันครั้งที่ 2: พิมพ์ RESET เพื่อล้างคะแนน ${levelLabel}`);
+    if (confirmText !== "RESET") return false;
 
     const teamIds = new Set(currentTeams.map((team) => team.id));
     setScores((current) => {
