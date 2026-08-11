@@ -199,6 +199,50 @@ h2 {
   padding: 14px;
 }
 
+.panel-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(108px, 160px);
+  align-items: end;
+  gap: 12px;
+}
+
+.team-setup {
+  gap: 14px;
+}
+
+.team-name-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  max-height: min(48dvh, 460px);
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.team-name-grid label {
+  gap: 5px;
+}
+
+.team-name-grid input {
+  min-height: 46px;
+  font-weight: 800;
+}
+
+.setup-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.setup-actions p {
+  margin: 0;
+  font-weight: 900;
+}
+
+.setup-actions button {
+  min-height: 56px;
+  font-size: 1.02rem;
+}
+
 .team-list {
   display: grid;
   gap: 8px;
@@ -835,6 +879,15 @@ textarea {
 
   .summary-row {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .panel-heading,
+  .team-name-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .team-name-grid {
+    max-height: 42dvh;
   }
 
   .team-row {

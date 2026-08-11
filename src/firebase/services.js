@@ -62,6 +62,41 @@ export async function importTeams(levelId, names, user) {
   await batch.commit();
 }
 
+export async function saveTeamSetup(levelId, teams, user) {
+  const snapshot = await getDocs(teamsCol(levelId));
+  const nextIds = new Set(teams.map((team) => team.id));
+  const batch = writeBatch(db);
+
+  snapshot.docs.forEach((docSnap) => {
+    if (!nextIds.has(docSnap.id)) {
+      batch.delete(teamRef(levelId, docSnap.id));
+      batch.delete(mainScoreRef(levelId, docSnap.id));
+    }
+  });
+
+  teams.forEach((team) => {
+    batch.set(teamRef(levelId, team.id), {
+      name: team.name,
+      order: team.order,
+      status: team.status || "pending",
+      mainTotal: team.mainTotal ?? null,
+      updatedAt: serverTimestamp(),
+      updatedBy: user?.uid || "admin",
+    }, { merge: true });
+  });
+
+  batch.set(doc(auditLogsCol(levelId)), {
+    levelId,
+    judge: user?.uid || "admin",
+    judgeRole: "admin",
+    action: "teamSetup.save",
+    after: teams.map((team) => ({ id: team.id, name: team.name, order: team.order })),
+    createdAt: serverTimestamp(),
+  });
+
+  await batch.commit();
+}
+
 export async function upsertTeam(levelId, teamId, data, user, reason = "") {
   const ref = teamId ? teamRef(levelId, teamId) : doc(teamsCol(levelId));
   const before = teamId ? (await getDoc(ref)).data() : null;

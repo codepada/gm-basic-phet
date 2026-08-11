@@ -7,7 +7,7 @@ import { pkNeededForMain } from "./core/pk.js";
 import { nextUnscoredTeam } from "./core/teams.js";
 import { sampleTeams } from "./data/sampleTeams.js";
 import { auth, isFirebaseConfigured } from "./firebase/config.js";
-import { listenMainScores, listenTeams, submitMainScore } from "./firebase/services.js";
+import { listenMainScores, listenTeams, saveTeamSetup, submitMainScore } from "./firebase/services.js";
 import "./styles/app.css";
 
 const initialTeams = Object.fromEntries(
@@ -65,6 +65,7 @@ function App() {
   const [firebaseUser, setFirebaseUser] = useState(null);
   const [syncStatus, setSyncStatus] = useState(isFirebaseConfigured ? "กำลังต่อ Firebase..." : "โหมดทดสอบในเครื่อง");
   const [syncError, setSyncError] = useState("");
+  const [setupStatus, setSetupStatus] = useState("");
 
   const teams = teamsByLevel[levelId] || [];
   const enrichedTeams = teams.map((team) => ({
@@ -202,6 +203,53 @@ function App() {
     }
   };
 
+  const saveTeamsFromAdmin = async (names) => {
+    const cleanNames = names.map((name) => name.trim());
+    const filledNames = cleanNames.filter(Boolean);
+    const duplicates = filledNames.filter((name, index) => filledNames.indexOf(name) !== index);
+    if (filledNames.length !== cleanNames.length) throw new Error("ยังมีชื่อทีมว่าง");
+    if (duplicates.length) throw new Error(`ชื่อทีมซ้ำ: ${[...new Set(duplicates)].join(", ")}`);
+
+    const currentLevelTeams = teamsByLevel[levelId] || [];
+    const currentIds = new Set(currentLevelTeams.map((team) => team.id));
+    const nextTeams = filledNames.map((name, index) => {
+      const id = `${levelId}-${index + 1}`;
+      const score = scores[id];
+      return {
+        id,
+        name,
+        order: index + 1,
+        status: score ? "main-complete" : "pending",
+        mainTotal: score?.breakdown?.total ?? null,
+      };
+    });
+    const nextIds = new Set(nextTeams.map((team) => team.id));
+
+    setTeamsByLevel((current) => ({ ...current, [levelId]: nextTeams }));
+    setScores((current) => {
+      const next = { ...current };
+      currentIds.forEach((teamId) => {
+        if (!nextIds.has(teamId)) delete next[teamId];
+      });
+      return next;
+    });
+    setSetupStatus("บันทึกตั้งค่าทีมในหน้านี้แล้ว");
+
+    if (isFirebaseConfigured && firebaseUser) {
+      setSyncStatus("กำลัง sync รายชื่อทีม...");
+      setSyncError("");
+      try {
+        await saveTeamSetup(levelId, nextTeams, firebaseUser);
+        setSyncStatus("sync รายชื่อทีมสำเร็จ");
+        setSetupStatus("บันทึกและ sync รายชื่อทีมสำเร็จ");
+      } catch (error) {
+        setSyncStatus("บันทึกรายชื่อในเครื่องแล้ว แต่ sync Firebase ไม่สำเร็จ");
+        setSyncError(error.message);
+        throw error;
+      }
+    }
+  };
+
   if (saveResult) {
     return (
       <SaveCompletePage
@@ -245,11 +293,12 @@ function App() {
           auditLogs={auditLogs}
           isCloudReady={isFirebaseConfigured && syncStatus === "ต่อ Firebase แล้ว"}
           syncStatus={syncStatus}
+          setupStatus={setupStatus}
           awardCutoff={awardCutoff}
           setAwardCutoff={setAwardCutoff}
           pkPolicy={pkPolicy}
           setPkPolicy={setPkPolicy}
-          setTeamsByLevel={setTeamsByLevel}
+          onSaveTeamSetup={saveTeamsFromAdmin}
         />
       ) : (
         <JudgePage teams={enrichedTeams} scores={scores} onScore={setSelectedTeam} />
@@ -331,23 +380,10 @@ function JudgePage({ teams, scores, onScore }) {
   );
 }
 
-function AdminPage({ levelId, teams, scores, auditLogs, isCloudReady, syncStatus, awardCutoff, setAwardCutoff, pkPolicy, setPkPolicy, setTeamsByLevel }) {
+function AdminPage({ levelId, teams, scores, auditLogs, isCloudReady, syncStatus, setupStatus, awardCutoff, setAwardCutoff, pkPolicy, setPkPolicy, onSaveTeamSetup }) {
   const completed = teams.filter((team) => scores[team.id]);
   const mainRanking = [...teams].sort((a, b) => (b.mainTotal ?? -1) - (a.mainTotal ?? -1));
   const pkNeeds = completed.length === teams.length ? pkNeededForMain(completed, awardCutoff, pkPolicy) : [];
-
-  const importText = (text) => {
-    const names = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-    const unique = [...new Set(names)];
-    if (unique.length !== names.length) {
-      window.alert("มีชื่อซ้ำในไฟล์ import");
-      return;
-    }
-    setTeamsByLevel((current) => ({
-      ...current,
-      [levelId]: unique.map((name, index) => ({ id: `${levelId}-import-${Date.now()}-${index}`, name, order: index + 1, status: "pending", mainTotal: null })),
-    }));
-  };
 
   return (
     <section className="stack">
@@ -385,7 +421,7 @@ function AdminPage({ levelId, teams, scores, auditLogs, isCloudReady, syncStatus
         </div>
       </section>
 
-      <ImportPanel onImport={importText} />
+      <TeamSetupPanel levelId={levelId} teams={teams} status={setupStatus} onSave={onSaveTeamSetup} />
 
       <section className="panel">
         <h2>{LEVEL_LABELS[levelId]} Main Summary</h2>
@@ -432,17 +468,69 @@ function AdminPage({ levelId, teams, scores, auditLogs, isCloudReady, syncStatus
   );
 }
 
-function ImportPanel({ onImport }) {
-  const [text, setText] = useState("");
-  const names = useMemo(() => text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean), [text]);
-  const duplicates = names.filter((name, index) => names.indexOf(name) !== index);
+function TeamSetupPanel({ levelId, teams, status, onSave }) {
+  const [count, setCount] = useState(teams.length);
+  const [names, setNames] = useState(() => teams.map((team) => team.name));
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    setCount(teams.length);
+    setNames(teams.map((team) => team.name));
+  }, [levelId, teams]);
+
+  const duplicates = useMemo(() => names.filter((name, index) => name.trim() && names.findIndex((item) => item.trim() === name.trim()) !== index), [names]);
+  const hasBlank = names.some((name) => !name.trim());
+
+  const updateCount = (nextCount) => {
+    setCount(nextCount);
+    setNames((current) => Array.from({ length: nextCount }, (_, index) => current[index] || `ทีม ${index + 1}`));
+  };
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    setError("");
+    try {
+      await onSave(names);
+    } catch (saveError) {
+      setError(saveError.message || "บันทึกรายชื่อทีมไม่สำเร็จ");
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
-    <section className="panel">
-      <h2>Import รายชื่อทีม</h2>
-      <textarea value={text} onChange={(event) => setText(event.target.value)} placeholder="1 บรรทัด = 1 ทีม" rows={6} />
-      <p className={duplicates.length ? "danger" : "muted"}>Preview {names.length} ทีม{duplicates.length ? ` • ซ้ำ: ${[...new Set(duplicates)].join(", ")}` : ""}</p>
-      <button disabled={!names.length || duplicates.length > 0} onClick={() => onImport(text)}>บันทึกรายชื่อ</button>
+    <section className="panel team-setup">
+      <div className="panel-heading">
+        <div>
+          <p className="eyebrow">Admin Setup</p>
+          <h2>ตั้งค่าจำนวนและชื่อทีม</h2>
+        </div>
+        <label>
+          จำนวนทีม
+          <select value={count} onChange={(event) => updateCount(Number(event.target.value))}>
+            {Array.from({ length: 31 }, (_, value) => (
+              <option key={value} value={value}>{value}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      <div className="team-name-grid">
+        {names.map((name, index) => (
+          <label key={`${levelId}-${index + 1}`}>
+            ทีมที่ {index + 1}
+            <input value={name} onChange={(event) => setNames((current) => current.map((item, itemIndex) => (itemIndex === index ? event.target.value : item)))} />
+          </label>
+        ))}
+      </div>
+
+      <div className="setup-actions">
+        <p className={error || duplicates.length || hasBlank ? "danger" : "muted"}>
+          {error || (hasBlank ? "ยังมีชื่อทีมว่าง" : duplicates.length ? `ชื่อซ้ำ: ${[...new Set(duplicates)].join(", ")}` : status || `พร้อมบันทึก ${count} ทีม`)}
+        </p>
+        <button disabled={isSaving || hasBlank || duplicates.length > 0} onClick={handleSave}>{isSaving ? "กำลังบันทึก..." : "บันทึกตั้งค่าทีม"}</button>
+      </div>
     </section>
   );
 }
