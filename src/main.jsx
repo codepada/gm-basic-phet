@@ -381,7 +381,7 @@ function App() {
         </div>
         <button className="ghost topbar-logout" onClick={handleLogout}>ออก</button>
       </header>
-      {isFirebaseConfigured || syncError ? <SyncBanner status={syncStatus} error={syncError} /> : null}
+      {syncError ? <SyncBanner status={syncStatus} error={syncError} /> : null}
 
       {role === ADMIN_ID ? <LevelTabs levelId={levelId} setLevelId={setLevelId} /> : null}
 
@@ -393,7 +393,6 @@ function App() {
           auditLogs={auditLogs}
           settings={settings}
           isCloudReady={isFirebaseConfigured && !syncError}
-          syncStatus={syncStatus}
           setupStatus={setupStatus}
           awardCutoff={awardCutoff}
           setAwardCutoff={setAwardCutoff}
@@ -546,7 +545,7 @@ function JudgePage({ teams, scores, assignment, pkOrders, onScore }) {
   );
 }
 
-function AdminPage({ levelId, teams, scores, auditLogs, settings, isCloudReady, syncStatus, setupStatus, awardCutoff, setAwardCutoff, pkPolicy, setPkPolicy, onSaveTeamSetup, onSaveSettings }) {
+function AdminPage({ levelId, teams, scores, auditLogs, settings, isCloudReady, setupStatus, awardCutoff, setAwardCutoff, pkPolicy, setPkPolicy, onSaveTeamSetup, onSaveSettings }) {
   const [adminTab, setAdminTab] = useState("dashboard");
   const completed = teams.filter((team) => scores[team.id]);
   const mainRanking = sortTeamsForResults(teams);
