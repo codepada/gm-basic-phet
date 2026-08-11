@@ -119,6 +119,11 @@ function loginIdFromEmail(email) {
   return email?.toLowerCase().endsWith(`@${AUTH_EMAIL_DOMAIN}`) ? email.split("@")[0] : "";
 }
 
+function authPasswordForLogin(id, password) {
+  if (id === ADMIN_ID) return password;
+  return password === "1234" ? "123456" : password;
+}
+
 function App() {
   const [session, setSession] = useState(() => {
     const stored = readStoredValue(STORAGE_KEYS.session, null);
@@ -442,7 +447,7 @@ function App() {
     const cleanId = id.toLowerCase();
     if (!LOGIN_IDS.includes(cleanId)) throw new Error("ไม่พบ ID นี้");
     if (!isFirebaseConfigured || !auth) throw new Error("Firebase Auth ยังไม่พร้อม");
-    const credential = await signInWithEmailAndPassword(auth, loginEmailForId(cleanId), password);
+    const credential = await signInWithEmailAndPassword(auth, loginEmailForId(cleanId), authPasswordForLogin(cleanId, password));
     setSession({ role: cleanId, uid: credential.user.uid, email: credential.user.email, at: new Date().toISOString() });
     setRole(cleanId);
     setLevelId(cleanId === ADMIN_ID ? "el" : JUDGE_LEVEL_BY_ID[cleanId] || "el");

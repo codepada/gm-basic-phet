@@ -9,7 +9,7 @@ Mobile-first scoring app for Green Mech judges and admins.
 - `sh01`-`sh10` มัธยมศึกษาตอนปลาย
 - `admin` ผู้ดูแลระบบ
 
-Login is checked by Firebase Auth. Judges still type the short ID, such as `sh01`; the app maps it to a Firebase Auth email internally.
+Login is checked by Firebase Auth. Judges still type the short ID, such as `sh01`; the app maps it to a Firebase Auth email internally. The judge-facing PIN can stay shorter than Firebase's password minimum because the app maps it before calling Firebase Auth.
 
 ## Local Development
 
