@@ -162,7 +162,7 @@ export async function submitMainScore(levelId, teamId, scoreDraft, user, reason 
     const before = existing.exists() ? existing.data() : null;
 
     const total = mainScore(scoreDraft);
-    const payload = {
+    const payload = stripUndefined({
       ...scoreDraft,
       teamId,
       levelId,
@@ -171,7 +171,7 @@ export async function submitMainScore(levelId, teamId, scoreDraft, user, reason 
       completedShots: 3,
       updatedAt: serverTimestamp(),
       updatedBy: user?.uid || "local-test",
-    };
+    });
     transaction.set(ref, payload, { merge: true });
     transaction.set(teamDocRef, {
       name: scoreDraft.teamName || teamId,
@@ -194,6 +194,18 @@ export async function submitMainScore(levelId, teamId, scoreDraft, user, reason 
       createdAt: serverTimestamp(),
     });
   });
+}
+
+export function stripUndefined(value) {
+  if (Array.isArray(value)) return value.map((item) => stripUndefined(item));
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value)
+        .filter(([, item]) => item !== undefined)
+        .map(([key, item]) => [key, stripUndefined(item)]),
+    );
+  }
+  return value;
 }
 
 export async function createPkSession(levelId, session, user) {
