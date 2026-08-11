@@ -57,7 +57,7 @@ function writeStoredValue(key, value) {
 
 function defaultSettings() {
   return {
-    judgeAssignments: Object.fromEntries(JUDGE_ACCOUNTS.map((account) => [account.id, { enabled: true, from: 1, to: 999, pkTeamOrder: "" }])),
+    judgeAssignments: Object.fromEntries(JUDGE_ACCOUNTS.map((account) => [account.id, { enabled: true, judgeName: "", from: 1, to: 999, pkTeamOrder: "" }])),
   };
 }
 
@@ -670,7 +670,7 @@ function JudgeAssignmentPanel({ levelId, teams, assignments, onSave }) {
       </div>
       <div className="assignment-grid">
         {judgeIds.map((judgeId) => {
-          const assignment = draft[judgeId] || { enabled: true, from: 1, to: teams.length || 1, pkTeamOrder: "" };
+          const assignment = draft[judgeId] || { enabled: true, judgeName: "", from: 1, to: teams.length || 1, pkTeamOrder: "" };
           const enabled = assignment.enabled !== false;
           return (
             <div key={judgeId} className={enabled ? "assignment-row" : "assignment-row disabled"}>
@@ -678,6 +678,10 @@ function JudgeAssignmentPanel({ levelId, teams, assignments, onSave }) {
               <label className="check-row assignment-enabled">
                 <input type="checkbox" checked={enabled} onChange={(event) => updateJudge(judgeId, { enabled: event.target.checked })} />
                 เปิดใช้
+              </label>
+              <label>
+                ชื่อกรรมการ
+                <input value={assignment.judgeName || ""} onChange={(event) => updateJudge(judgeId, { judgeName: event.target.value })} placeholder="เช่น ครูสมชาย" />
               </label>
               <label>
                 จากทีม

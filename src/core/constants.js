@@ -11,9 +11,9 @@ export const ADMIN_PASSWORD = "wgm2026";
 export const JUDGE_PASSWORD = "1234";
 
 export const JUDGE_IDS_BY_LEVEL = {
-  el: ["el01", "el02", "el03"],
-  jh: ["jh01", "jh02", "jh03", "jh04"],
-  sh: ["sh01", "sh02", "sh03", "sh04"],
+  el: Array.from({ length: 10 }, (_, index) => `el${String(index + 1).padStart(2, "0")}`),
+  jh: Array.from({ length: 10 }, (_, index) => `jh${String(index + 1).padStart(2, "0")}`),
+  sh: Array.from({ length: 10 }, (_, index) => `sh${String(index + 1).padStart(2, "0")}`),
 };
 
 export const JUDGE_ACCOUNTS = Object.entries(JUDGE_IDS_BY_LEVEL).flatMap(([levelId, ids]) => ids.map((id) => ({ id, levelId })));

@@ -4,9 +4,9 @@ Mobile-first scoring app for Green Mech judges and admins.
 
 ## Roles
 
-- `el01`, `el02`, `el03` ประถมศึกษา
-- `jh01`, `jh02`, `jh03`, `jh04` มัธยมศึกษาตอนต้น
-- `sh01`, `sh02`, `sh03`, `sh04` มัธยมศึกษาตอนปลาย
+- `el01`-`el10` ประถมศึกษา
+- `jh01`-`jh10` มัธยมศึกษาตอนต้น
+- `sh01`-`sh10` มัธยมศึกษาตอนปลาย
 - `admin` ผู้ดูแลระบบ
 
 Admin password is `wgm2026`. Judge IDs use `1234`.

@@ -317,7 +317,7 @@ h2 {
 
 .assignment-row {
   display: grid;
-  grid-template-columns: 72px 92px repeat(3, minmax(0, 1fr));
+  grid-template-columns: 72px 92px minmax(160px, 1.3fr) repeat(3, minmax(0, 1fr));
   align-items: end;
   gap: 8px;
   border: 1px solid var(--line);
