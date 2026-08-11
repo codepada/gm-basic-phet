@@ -519,6 +519,14 @@ h2 {
   padding: 10px;
 }
 
+.team-row button {
+  white-space: nowrap;
+}
+
+.team-row .edit-score-button {
+  background: var(--red);
+}
+
 .team-order {
   width: 32px;
   height: 32px;
@@ -1176,11 +1184,14 @@ textarea {
   }
 
   .team-row {
-    grid-template-columns: 30px minmax(0, 1fr);
+    grid-template-columns: 30px minmax(0, 1fr) auto;
+    gap: 8px;
   }
 
   .team-row button {
-    grid-column: 1 / -1;
+    min-height: 44px;
+    padding: 0 10px;
+    font-size: 0.86rem;
   }
 
   .form-grid,

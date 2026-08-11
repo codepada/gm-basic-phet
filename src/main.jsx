@@ -536,7 +536,9 @@ function JudgePage({ teams, scores, assignment, pkOrders, onScore }) {
               <span>{team.school || "ไม่ระบุโรงเรียน"}</span>
               <span>{scores[team.id] ? `ตรวจแล้ว • ยิงครบ 3 ครั้ง • ${scores[team.id].total} คะแนน` : "รอให้คะแนน"}</span>
             </div>
-            <button onClick={() => onScore(team)}>{scores[team.id] ? "แก้คะแนน" : "เริ่มให้คะแนน"}</button>
+            <button className={scores[team.id] ? "edit-score-button" : ""} onClick={() => onScore(team)}>
+              {scores[team.id] ? "แก้คะแนน" : "เริ่มให้คะแนน"}
+            </button>
           </article>
         ))}
       </div>
