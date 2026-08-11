@@ -18,16 +18,24 @@ import { mainScore, pkScore } from "../core/scoring.js";
 import { pkAttemptsCol, pkSessionsCol, teamRef, teamsCol, mainScoresCol, mainScoreRef, auditLogsCol, settingsRef, competitionRef, usersCol } from "./paths.js";
 import { db, storage } from "./config.js";
 
-export function listenTeams(levelId, callback) {
-  return onSnapshot(query(teamsCol(levelId), orderBy("order", "asc")), (snapshot) => {
-    callback(snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })));
-  });
+export function listenTeams(levelId, callback, onError) {
+  return onSnapshot(
+    query(teamsCol(levelId), orderBy("order", "asc")),
+    (snapshot) => {
+      callback(snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })));
+    },
+    onError,
+  );
 }
 
-export function listenMainScores(levelId, callback) {
-  return onSnapshot(query(mainScoresCol(levelId)), (snapshot) => {
-    callback(snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })));
-  });
+export function listenMainScores(levelId, callback, onError) {
+  return onSnapshot(
+    query(mainScoresCol(levelId)),
+    (snapshot) => {
+      callback(snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })));
+    },
+    onError,
+  );
 }
 
 export async function importTeams(levelId, names, user) {
@@ -105,7 +113,6 @@ export async function submitMainScore(levelId, teamId, scoreDraft, user, reason 
   await runTransaction(ref.firestore, async (transaction) => {
     const existing = await transaction.get(ref);
     const before = existing.exists() ? existing.data() : null;
-    if (before && !reason) throw new Error("การแก้คะแนนต้องระบุเหตุผล");
 
     const total = mainScore(scoreDraft);
     const payload = {
@@ -116,19 +123,21 @@ export async function submitMainScore(levelId, teamId, scoreDraft, user, reason 
       total: total.total,
       completedShots: 3,
       updatedAt: serverTimestamp(),
-      updatedBy: user.uid,
+      updatedBy: user?.uid || "local-test",
     };
     transaction.set(ref, payload, { merge: true });
-    transaction.update(teamDocRef, {
+    transaction.set(teamDocRef, {
+      name: scoreDraft.teamName || teamId,
+      order: scoreDraft.teamOrder || 999,
       status: "main-complete",
       mainTotal: total.total,
       lock: null,
       updatedAt: serverTimestamp(),
-    });
+    }, { merge: true });
     transaction.set(doc(auditLogsCol(levelId)), {
       teamId,
       levelId,
-      judge: user.uid,
+      judge: user?.uid || "local-test",
       action: before ? "mainScore.update" : "mainScore.create",
       before,
       after: payload,

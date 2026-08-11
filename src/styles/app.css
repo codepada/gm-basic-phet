@@ -97,6 +97,30 @@ h2 {
   margin-bottom: 12px;
 }
 
+.sync-banner {
+  display: grid;
+  gap: 2px;
+  margin-bottom: 12px;
+  border: 1px solid #b9dec8;
+  border-radius: 8px;
+  background: #edf8f1;
+  color: var(--green-dark);
+  padding: 10px;
+  font-size: 0.86rem;
+}
+
+.sync-banner.error {
+  border-color: #edc0c5;
+  background: #fff5f6;
+  color: var(--red);
+}
+
+.sync-banner span {
+  color: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
 .tabs button,
 .segmented button {
   background: #dfe8e4;

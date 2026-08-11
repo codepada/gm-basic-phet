@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
+import { signInAnonymously } from "firebase/auth";
 import { LEVELS, LEVEL_LABELS, PK_POLICY, TARGETS } from "./core/constants.js";
 import { mainScore, missionScore, smoothnessReady, smoothnessScore } from "./core/scoring.js";
 import { pkNeededForMain } from "./core/pk.js";
 import { nextUnscoredTeam } from "./core/teams.js";
 import { sampleTeams } from "./data/sampleTeams.js";
+import { auth, isFirebaseConfigured } from "./firebase/config.js";
+import { listenMainScores, listenTeams, submitMainScore } from "./firebase/services.js";
 import "./styles/app.css";
 
 const initialTeams = Object.fromEntries(
@@ -59,6 +62,9 @@ function App() {
   const [awardCutoff, setAwardCutoff] = useState(6);
   const [pkPolicy, setPkPolicy] = useState(PK_POLICY.podiumCutoff);
   const [auditLogs, setAuditLogs] = useState(() => readStoredValue(STORAGE_KEYS.auditLogs, []));
+  const [firebaseUser, setFirebaseUser] = useState(null);
+  const [syncStatus, setSyncStatus] = useState(isFirebaseConfigured ? "กำลังต่อ Firebase..." : "โหมดทดสอบในเครื่อง");
+  const [syncError, setSyncError] = useState("");
 
   const teams = teamsByLevel[levelId] || [];
   const enrichedTeams = teams.map((team) => ({
@@ -79,11 +85,76 @@ function App() {
     writeStoredValue(STORAGE_KEYS.auditLogs, auditLogs);
   }, [auditLogs]);
 
-  const saveMainScore = (team, draft, reason = "") => {
+  useEffect(() => {
+    if (!isFirebaseConfigured) return undefined;
+    let active = true;
+    signInAnonymously(auth)
+      .then((credential) => {
+        if (!active) return;
+        setFirebaseUser(credential.user);
+        setSyncStatus("ต่อ Firebase แล้ว");
+        setSyncError("");
+      })
+      .catch((error) => {
+        if (!active) return;
+        setSyncStatus("Firebase ต่อไม่ได้");
+        setSyncError(error.message);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isFirebaseConfigured || !firebaseUser) return undefined;
+    const unsubscribe = listenTeams(
+      levelId,
+      (remoteTeams) => {
+        if (!remoteTeams.length) return;
+        setTeamsByLevel((current) => {
+          const baseTeams = current[levelId]?.length ? current[levelId] : initialTeams[levelId];
+          const remoteById = Object.fromEntries(remoteTeams.map((team) => [team.id, team]));
+          const merged = baseTeams.map((team) => ({ ...team, ...remoteById[team.id] }));
+          const extraRemoteTeams = remoteTeams.filter((team) => !baseTeams.some((baseTeam) => baseTeam.id === team.id));
+          return { ...current, [levelId]: [...merged, ...extraRemoteTeams].sort((a, b) => (a.order ?? 999) - (b.order ?? 999)) };
+        });
+      },
+      (error) => {
+        setSyncStatus("อ่านทีมจาก Firebase ไม่ได้");
+        setSyncError(error.message);
+      },
+    );
+    return unsubscribe;
+  }, [firebaseUser, levelId]);
+
+  useEffect(() => {
+    if (!isFirebaseConfigured || !firebaseUser) return undefined;
+    const unsubscribe = listenMainScores(
+      levelId,
+      (remoteScores) => {
+        setScores((current) => {
+          const next = { ...current };
+          remoteScores.forEach((score) => {
+            next[score.teamId || score.id] = score;
+          });
+          return next;
+        });
+      },
+      (error) => {
+        setSyncStatus("อ่านคะแนนจาก Firebase ไม่ได้");
+        setSyncError(error.message);
+      },
+    );
+    return unsubscribe;
+  }, [firebaseUser, levelId]);
+
+  const saveMainScore = async (team, draft, reason = "") => {
     const before = scores[team.id] || null;
     const breakdown = mainScore(draft);
     const after = {
       ...draft,
+      teamName: team.name,
+      teamOrder: team.order,
       teamId: team.id,
       levelId,
       breakdown,
@@ -95,6 +166,13 @@ function App() {
     const nextScores = { ...scores, [team.id]: after };
     const currentTeams = teamsByLevel[levelId] || [];
     const nextTeam = nextUnscoredTeam(currentTeams, nextScores, team.id);
+
+    if (isFirebaseConfigured && firebaseUser) {
+      setSyncStatus("กำลังบันทึก Firebase...");
+      setSyncError("");
+      await submitMainScore(levelId, team.id, after, firebaseUser, reason);
+      setSyncStatus("บันทึก Firebase สำเร็จ");
+    }
 
     setScores(nextScores);
     setTeamsByLevel((current) => ({
@@ -150,6 +228,7 @@ function App() {
           <option value="sci03">sci03</option>
         </select>
       </header>
+      <SyncBanner status={syncStatus} error={syncError} />
 
       <LevelTabs levelId={levelId} setLevelId={setLevelId} />
 
@@ -169,6 +248,15 @@ function App() {
         <JudgePage teams={enrichedTeams} scores={scores} onScore={setSelectedTeam} />
       )}
     </main>
+  );
+}
+
+function SyncBanner({ status, error }) {
+  return (
+    <div className={error ? "sync-banner error" : "sync-banner"}>
+      <strong>{status}</strong>
+      {error ? <span>{error}</span> : null}
+    </div>
   );
 }
 
@@ -350,6 +438,8 @@ function ScoreWizard({ team, existing, onCancel, onSave }) {
   const [shots, setShots] = useState(existing?.shots ?? [blankShot(true), blankShot(false), blankShot(false)]);
   const [reason, setReason] = useState("");
   const [step, setStep] = useState(0);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const draft = { deviceCount, shots };
   const breakdown = mainScore(draft);
   const steps = buildWizardSteps();
@@ -362,6 +452,17 @@ function ScoreWizard({ team, existing, onCancel, onSave }) {
 
   const updateShot = (index, patch) => {
     setShots((current) => current.map((shot, shotIndex) => (shotIndex === index ? { ...shot, ...patch } : shot)));
+  };
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    setSaveError("");
+    try {
+      await onSave(team, draft, reason);
+    } catch (error) {
+      setSaveError(error.message || "บันทึกไม่สำเร็จ");
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -413,13 +514,14 @@ function ScoreWizard({ team, existing, onCancel, onSave }) {
         <div className="wizard-actions">
           <button className="ghost" disabled={step === 0} onClick={() => setStep((current) => Math.max(0, current - 1))}>ย้อนกลับ</button>
           {isLastStep ? (
-            <button disabled={saveDisabled} onClick={() => onSave(team, draft, reason)}>บันทึก / ทีมถัดไป</button>
+            <button disabled={saveDisabled || isSaving} onClick={handleSave}>{isSaving ? "กำลังบันทึก..." : "บันทึก / ทีมถัดไป"}</button>
           ) : (
             <button disabled={!currentStepReady} onClick={() => setStep((current) => Math.min(steps.length - 1, current + 1))}>ถัดไป</button>
           )}
           {isLastStep && saveDisabled ? (
             <span className="save-hint">ยังไม่ครบ: {firstIncompleteStep?.step.title}</span>
           ) : null}
+          {saveError ? <span className="save-hint">{saveError}</span> : null}
         </div>
       </section>
     </main>
