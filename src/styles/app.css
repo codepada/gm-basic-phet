@@ -74,6 +74,7 @@ button.ghost {
 
 .topbar h1,
 .topbar p,
+.save-complete-card h1,
 h2 {
   margin: 0;
 }
@@ -693,6 +694,61 @@ textarea {
   font-weight: 800;
 }
 
+.save-complete-shell {
+  min-height: 100dvh;
+  display: grid;
+  align-items: center;
+}
+
+.save-complete-card {
+  min-height: min(640px, calc(100dvh - 24px));
+  grid-template-rows: auto minmax(0, 1fr) minmax(0, 0.8fr) auto;
+  align-content: stretch;
+}
+
+.save-complete-card h1 {
+  font-size: clamp(1.5rem, 7vw, 2.4rem);
+}
+
+.save-total,
+.save-next {
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f7faf8;
+  text-align: center;
+  padding: 14px;
+}
+
+.save-total span,
+.save-next span {
+  color: var(--muted);
+  font-weight: 900;
+}
+
+.save-total strong {
+  color: var(--green-dark);
+  font-size: clamp(3rem, 18vw, 6rem);
+  line-height: 1;
+}
+
+.save-next strong {
+  font-size: clamp(1.15rem, 6vw, 2rem);
+}
+
+.save-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.save-actions button {
+  min-height: 64px;
+  font-size: 1.08rem;
+}
+
 @media (max-width: 680px) {
   body {
     overflow: hidden;
@@ -939,6 +995,19 @@ textarea {
 
   .progress-track {
     height: 4px;
+  }
+
+  .save-complete-shell {
+    padding: 10px;
+  }
+
+  .save-complete-card {
+    min-height: calc(100svh - 20px);
+    padding: 14px;
+  }
+
+  .save-actions button {
+    min-height: 70px;
   }
 }
 

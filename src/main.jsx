@@ -36,6 +36,7 @@ function App() {
   const [teamsByLevel, setTeamsByLevel] = useState(initialTeams);
   const [scores, setScores] = useState({});
   const [selectedTeam, setSelectedTeam] = useState(null);
+  const [saveResult, setSaveResult] = useState(null);
   const [awardCutoff, setAwardCutoff] = useState(6);
   const [pkPolicy, setPkPolicy] = useState(PK_POLICY.podiumCutoff);
   const [auditLogs, setAuditLogs] = useState([]);
@@ -83,8 +84,22 @@ function App() {
       },
       ...current,
     ]);
-    setSelectedTeam(nextTeam ? { ...nextTeam } : null);
+    setSelectedTeam(null);
+    setSaveResult({ savedTeam: team, nextTeam: nextTeam ? { ...nextTeam } : null, total: breakdown.total });
   };
+
+  if (saveResult) {
+    return (
+      <SaveCompletePage
+        result={saveResult}
+        onNext={() => {
+          setSelectedTeam(saveResult.nextTeam);
+          setSaveResult(null);
+        }}
+        onList={() => setSaveResult(null)}
+      />
+    );
+  }
 
   if (selectedTeam) {
     return <ScoreWizard key={selectedTeam.id} team={selectedTeam} existing={scores[selectedTeam.id]} onCancel={() => setSelectedTeam(null)} onSave={saveMainScore} />;
@@ -122,6 +137,34 @@ function App() {
       ) : (
         <JudgePage teams={enrichedTeams} scores={scores} onScore={setSelectedTeam} />
       )}
+    </main>
+  );
+}
+
+function SaveCompletePage({ result, onNext, onList }) {
+  return (
+    <main className="app-shell save-complete-shell">
+      <section className="panel save-complete-card">
+        <div>
+          <p className="eyebrow">บันทึกสำเร็จ</p>
+          <h1>{result.savedTeam.name}</h1>
+        </div>
+
+        <div className="save-total">
+          <span>คะแนนรวม</span>
+          <strong>{result.total}</strong>
+        </div>
+
+        <div className="save-next">
+          <span>ทีมถัดไป</span>
+          <strong>{result.nextTeam ? result.nextTeam.name : "ครบทุกทีมแล้ว"}</strong>
+        </div>
+
+        <div className="save-actions">
+          <button disabled={!result.nextTeam} onClick={onNext}>ให้คะแนนทีมถัดไป</button>
+          <button className="ghost" onClick={onList}>กลับรายชื่อทีม</button>
+        </div>
+      </section>
     </main>
   );
 }
