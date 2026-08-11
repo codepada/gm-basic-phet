@@ -579,7 +579,6 @@ function LoginPage({ onLogin }) {
             type="password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            placeholder="กรอกรหัส"
           />
         </label>
 
