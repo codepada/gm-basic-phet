@@ -316,14 +316,14 @@ textarea {
   gap: 10px;
   padding: 12px;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
 }
 
 .device-step,
 .summary-step,
 .shot-summary-step {
   grid-template-rows: auto auto minmax(0, 1fr);
-  align-content: start;
+  align-content: stretch;
 }
 
 .device-step .choice-grid {
@@ -332,6 +332,7 @@ textarea {
 }
 
 .device-step .choice {
+  height: 100%;
   min-height: 88px;
   font-size: 1.35rem;
 }
@@ -356,7 +357,7 @@ textarea {
 
 .score-section {
   display: grid;
-  align-content: start;
+  align-content: stretch;
   gap: 8px;
   min-height: 100%;
 }
@@ -374,6 +375,7 @@ textarea {
 
 .phase-position .score-section > .choice-grid .choice,
 .phase-distance .score-section > .choice-grid .choice {
+  height: 100%;
   min-height: 132px;
   font-size: 1.15rem;
 }
@@ -384,10 +386,12 @@ textarea {
 }
 
 .phase-operation .score-section {
+  grid-template-rows: auto repeat(3, minmax(0, 1fr));
   align-content: stretch;
 }
 
 .phase-operation .choice {
+  height: 100%;
   min-height: 66px;
 }
 
@@ -408,6 +412,7 @@ textarea {
 }
 
 .phase-score .ball-card .choice {
+  height: 100%;
   min-height: 78px;
 }
 
@@ -491,6 +496,20 @@ textarea {
   gap: 8px;
 }
 
+.summary-step {
+  grid-template-rows: auto minmax(0, 0.9fr) minmax(0, 1.1fr) auto auto;
+}
+
+.summary-step .summary-cards,
+.summary-step .ranking {
+  height: 100%;
+}
+
+.summary-step .metric,
+.summary-step .ranking div {
+  align-content: center;
+}
+
 .shot-summary-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -506,6 +525,7 @@ textarea {
 
 .ball-card {
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 6px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -516,11 +536,13 @@ textarea {
 .ball-card-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: minmax(0, 1fr);
   gap: 6px;
 }
 
 .sub-section {
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 8px;
   border-top: 1px solid var(--line);
   padding-top: 10px;
@@ -536,6 +558,7 @@ textarea {
 }
 
 .smooth-score {
+  height: 100%;
   min-height: 40px;
   display: grid;
   place-items: center;
@@ -556,7 +579,7 @@ textarea {
 
 .smooth-grid {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-rows: auto minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
   gap: 6px;
 }
 
@@ -568,11 +591,13 @@ textarea {
 }
 
 .counter button {
+  height: 100%;
   min-height: 42px;
   padding: 0;
 }
 
 .counter strong {
+  height: 100%;
   min-height: 42px;
   display: grid;
   place-items: center;
@@ -848,11 +873,20 @@ textarea {
 
   .phase-score .ball-card {
     min-height: 150px;
-    align-content: center;
+    align-content: stretch;
   }
 
   .phase-score .ball-card .choice {
     min-height: 64px;
+  }
+
+  .phase-operation .score-section {
+    grid-template-rows: auto repeat(3, minmax(0, 1fr));
+  }
+
+  .phase-operation .sub-section,
+  .phase-operation .smooth-grid {
+    min-height: 0;
   }
 
   .shot-summary-grid {
@@ -865,6 +899,10 @@ textarea {
 
   .summary-step .summary-cards .metric {
     min-height: 78px;
+  }
+
+  .summary-step .ranking div {
+    min-height: 58px;
   }
 
   .sticky-total {
@@ -959,6 +997,10 @@ textarea {
 
   .phase-score .ball-card .choice {
     min-height: 48px;
+  }
+
+  .summary-step .ranking div {
+    min-height: 44px;
   }
 
   .shot-summary-grid .metric {
