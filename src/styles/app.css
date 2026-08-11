@@ -148,6 +148,10 @@ h2 {
   margin-bottom: 12px;
 }
 
+.admin-tabs {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
 .sync-banner {
   display: grid;
   gap: 2px;
@@ -317,7 +321,7 @@ h2 {
 
 .assignment-row {
   display: grid;
-  grid-template-columns: 72px 92px minmax(160px, 1.3fr) repeat(3, minmax(0, 1fr));
+  grid-template-columns: 72px 92px minmax(160px, 1.3fr) repeat(2, minmax(0, 1fr));
   align-items: end;
   gap: 8px;
   border: 1px solid var(--line);
@@ -362,6 +366,108 @@ h2 {
 .assignment-note span {
   color: var(--muted);
   font-weight: 800;
+}
+
+.pk-assignment-panel,
+.pk-assignment-list {
+  display: grid;
+  gap: 12px;
+}
+
+.pk-assignment-row {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+  background: #fbfcfc;
+}
+
+.pk-assignment-row.disabled {
+  opacity: 0.7;
+  background: #f3f5f4;
+}
+
+.pk-judge-head {
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.pk-judge-head strong {
+  min-height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: #e6efeb;
+  color: var(--green-dark);
+}
+
+.pk-judge-head span {
+  color: var(--muted);
+  font-weight: 900;
+}
+
+.pk-team-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.pk-team-chip {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #eef4f1;
+  padding: 8px;
+  font-weight: 900;
+}
+
+.pk-team-chip.active {
+  border-color: var(--green-dark);
+  background: var(--green);
+  color: white;
+}
+
+.pk-team-chip input {
+  width: 18px;
+}
+
+.print-results {
+  gap: 14px;
+}
+
+.print-actions,
+.print-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.print-summary {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.results-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+}
+
+.results-table th,
+.results-table td {
+  border: 1px solid var(--line);
+  padding: 8px;
+  text-align: left;
+}
+
+.results-table th {
+  background: #e6efeb;
 }
 
 .team-list {
@@ -1011,6 +1117,28 @@ textarea {
     grid-template-columns: 1fr;
   }
 
+  .admin-tabs {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 5px;
+  }
+
+  .admin-tabs button {
+    min-height: 40px;
+    padding: 0 5px;
+    font-size: 0.78rem;
+  }
+
+  .pk-judge-head,
+  .pk-team-grid,
+  .print-actions,
+  .print-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .results-table {
+    font-size: 0.82rem;
+  }
+
   .team-name-grid {
     max-height: 42dvh;
   }
@@ -1240,6 +1368,42 @@ textarea {
 
   .save-actions button {
     min-height: 70px;
+  }
+}
+
+@media print {
+  body {
+    overflow: visible;
+    background: white;
+  }
+
+  .topbar,
+  .tabs,
+  .admin-tabs,
+  .sync-banner,
+  .print-actions button {
+    display: none !important;
+  }
+
+  .app-shell {
+    width: 100%;
+    min-height: auto;
+    padding: 0;
+  }
+
+  .panel {
+    box-shadow: none;
+    border: 0;
+  }
+
+  .print-results {
+    display: grid !important;
+  }
+
+  .results-table th,
+  .results-table td {
+    color: #000;
+    border-color: #444;
   }
 }
 

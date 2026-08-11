@@ -58,6 +58,7 @@ function writeStoredValue(key, value) {
 function defaultSettings() {
   return {
     judgeAssignments: Object.fromEntries(JUDGE_ACCOUNTS.map((account) => [account.id, { enabled: true, judgeName: "", from: 1, to: 999, pkTeamOrder: "" }])),
+    pkAssignments: Object.fromEntries(JUDGE_ACCOUNTS.map((account) => [account.id, []])),
   };
 }
 
@@ -82,6 +83,13 @@ function teamWithinAssignment(team, assignment) {
   const from = Number(assignment.from) || 1;
   const to = Number(assignment.to) || 999;
   return team.order >= from && team.order <= to;
+}
+
+function pkOrdersForJudge(settings, judgeId) {
+  const assigned = settings.pkAssignments?.[judgeId];
+  if (Array.isArray(assigned)) return assigned.map(Number).filter(Boolean);
+  const legacyOrder = settings.judgeAssignments?.[judgeId]?.pkTeamOrder;
+  return legacyOrder ? [Number(legacyOrder)] : [];
 }
 
 function App() {
@@ -387,7 +395,7 @@ function App() {
           }}
         />
       ) : (
-        <JudgePage teams={visibleTeams} scores={scores} assignment={settings.judgeAssignments?.[role]} onScore={setSelectedTeam} />
+        <JudgePage teams={visibleTeams} scores={scores} assignment={settings.judgeAssignments?.[role]} pkOrders={pkOrdersForJudge(settings, role)} onScore={setSelectedTeam} />
       )}
     </main>
   );
@@ -486,14 +494,14 @@ function LevelTabs({ levelId, setLevelId }) {
     <nav className="tabs" aria-label="levels">
       {LEVELS.map((level) => (
         <button key={level.id} className={level.id === levelId ? "active" : ""} onClick={() => setLevelId(level.id)}>
-          {level.id}
+          {level.shortLabel}
         </button>
       ))}
     </nav>
   );
 }
 
-function JudgePage({ teams, scores, assignment, onScore }) {
+function JudgePage({ teams, scores, assignment, pkOrders, onScore }) {
   const isEnabled = assignment?.enabled !== false;
   return (
     <section className="stack">
@@ -505,7 +513,7 @@ function JudgePage({ teams, scores, assignment, onScore }) {
       {assignment ? (
         <section className={isEnabled ? "panel assignment-note" : "panel assignment-note disabled"}>
           <strong>{isEnabled ? `ช่วงทีมที่รับผิดชอบ: ${assignment.from || 1}-${assignment.to || 999}` : "ID นี้ยังไม่ได้เปิดให้ลงคะแนน"}</strong>
-          {assignment.pkTeamOrder ? <span>PK ที่ได้รับมอบหมาย: ทีมลำดับ {assignment.pkTeamOrder}</span> : null}
+          {pkOrders?.length ? <span>PK ที่ได้รับมอบหมาย: ทีมลำดับ {pkOrders.join(", ")}</span> : null}
         </section>
       ) : null}
       <div className="team-list">
@@ -537,6 +545,8 @@ function AdminPage({ levelId, teams, scores, auditLogs, settings, isCloudReady, 
         <button className={adminTab === "dashboard" ? "active" : ""} onClick={() => setAdminTab("dashboard")}>Dashboard</button>
         <button className={adminTab === "teams" ? "active" : ""} onClick={() => setAdminTab("teams")}>ทีม</button>
         <button className={adminTab === "judges" ? "active" : ""} onClick={() => setAdminTab("judges")}>กรรมการ</button>
+        <button className={adminTab === "pk" ? "active" : ""} onClick={() => setAdminTab("pk")}>PK</button>
+        <button className={adminTab === "print" ? "active" : ""} onClick={() => setAdminTab("print")}>พิมพ์ผล</button>
       </nav>
 
       <div className="summary-row">
@@ -555,6 +565,18 @@ function AdminPage({ levelId, teams, scores, auditLogs, settings, isCloudReady, 
           onSave={(judgeAssignments) => onSaveSettings({ judgeAssignments })}
         />
       ) : null}
+
+      {adminTab === "pk" ? (
+        <PkAssignmentPanel
+          levelId={levelId}
+          teams={teams}
+          assignments={settings.judgeAssignments || {}}
+          pkAssignments={settings.pkAssignments || {}}
+          onSave={(pkAssignments) => onSaveSettings({ pkAssignments })}
+        />
+      ) : null}
+
+      {adminTab === "print" ? <PrintResultsPage levelId={levelId} teams={mainRanking} scores={scores} /> : null}
 
       {adminTab === "dashboard" ? (
         <>
@@ -691,15 +713,6 @@ function JudgeAssignmentPanel({ levelId, teams, assignments, onSave }) {
                 ถึงทีม
                 <input disabled={!enabled} inputMode="numeric" type="number" min="1" max={teams.length || 999} value={assignment.to || ""} onChange={(event) => updateJudge(judgeId, { to: Number(event.target.value) })} />
               </label>
-              <label>
-                PK
-                <select disabled={!enabled} value={assignment.pkTeamOrder || ""} onChange={(event) => updateJudge(judgeId, { pkTeamOrder: event.target.value ? Number(event.target.value) : "" })}>
-                  <option value="">ยังไม่มอบหมาย</option>
-                  {teams.map((team) => (
-                    <option key={team.id} value={team.order}>{team.order}. {team.teamName || team.name}</option>
-                  ))}
-                </select>
-              </label>
             </div>
           );
         })}
@@ -708,6 +721,116 @@ function JudgeAssignmentPanel({ levelId, teams, assignments, onSave }) {
         <p className="muted">{status || "กำหนดช่วงทีมที่แต่ละ ID มองเห็น และเลือกทีม PK ได้ ID ละ 1 ทีม"}</p>
         <button onClick={handleSave}>บันทึกการมอบหมาย</button>
       </div>
+    </section>
+  );
+}
+
+function PkAssignmentPanel({ levelId, teams, assignments, pkAssignments, onSave }) {
+  const judgeIds = JUDGE_IDS_BY_LEVEL[levelId] || [];
+  const [draft, setDraft] = useState(() => ({ ...pkAssignments }));
+  const [status, setStatus] = useState("");
+
+  useEffect(() => {
+    const next = { ...pkAssignments };
+    judgeIds.forEach((judgeId) => {
+      if (!Array.isArray(next[judgeId]) && assignments[judgeId]?.pkTeamOrder) {
+        next[judgeId] = [Number(assignments[judgeId].pkTeamOrder)];
+      }
+      if (!Array.isArray(next[judgeId])) next[judgeId] = [];
+    });
+    setDraft(next);
+  }, [assignments, judgeIds, pkAssignments]);
+
+  const toggleTeam = (judgeId, order) => {
+    setDraft((current) => {
+      const currentOrders = new Set((current[judgeId] || []).map(Number));
+      if (currentOrders.has(order)) currentOrders.delete(order);
+      else currentOrders.add(order);
+      return { ...current, [judgeId]: [...currentOrders].sort((a, b) => a - b) };
+    });
+  };
+
+  const handleSave = async () => {
+    if (!window.confirm("ยืนยันบันทึกมอบหมาย PK หรือไม่?")) return;
+    await onSave(draft);
+    setStatus("บันทึกมอบหมาย PK แล้ว");
+  };
+
+  return (
+    <section className="panel pk-assignment-panel">
+      <div>
+        <p className="eyebrow">PK Assignment</p>
+        <h2>มอบหมายทีม PK ให้กรรมการ</h2>
+      </div>
+      <div className="pk-assignment-list">
+        {judgeIds.map((judgeId) => {
+          const assignment = assignments[judgeId] || {};
+          const enabled = assignment.enabled !== false;
+          const selected = new Set((draft[judgeId] || []).map(Number));
+          return (
+            <article key={judgeId} className={enabled ? "pk-assignment-row" : "pk-assignment-row disabled"}>
+              <div className="pk-judge-head">
+                <strong>{judgeId}</strong>
+                <span>{assignment.judgeName || "ยังไม่ใส่ชื่อกรรมการ"}</span>
+              </div>
+              <div className="pk-team-grid">
+                {teams.map((team) => (
+                  <label key={`${judgeId}-${team.id}`} className={selected.has(team.order) ? "pk-team-chip active" : "pk-team-chip"}>
+                    <input disabled={!enabled} type="checkbox" checked={selected.has(team.order)} onChange={() => toggleTeam(judgeId, team.order)} />
+                    <span>{team.order}. {team.teamName || team.name}</span>
+                  </label>
+                ))}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+      <div className="setup-actions">
+        <p className="muted">{status || "เลือกได้หลายทีมต่อกรรมการ เพื่อแบ่งงาน PK พร้อมกัน"}</p>
+        <button onClick={handleSave}>บันทึกมอบหมาย PK</button>
+      </div>
+    </section>
+  );
+}
+
+function PrintResultsPage({ levelId, teams, scores }) {
+  const completed = teams.filter((team) => scores[team.id]);
+  return (
+    <section className="panel print-results">
+      <div className="print-actions">
+        <div>
+          <p className="eyebrow">Print</p>
+          <h2>ผลการแข่งขัน {LEVEL_LABELS[levelId]}</h2>
+        </div>
+        <button onClick={() => window.print()}>พิมพ์ผล</button>
+      </div>
+      <div className="print-summary">
+        <Metric label="ทีมทั้งหมด" value={teams.length} />
+        <Metric label="มีคะแนน" value={completed.length} />
+        <Metric label="รอคะแนน" value={teams.length - completed.length} />
+      </div>
+      <table className="results-table">
+        <thead>
+          <tr>
+            <th>อันดับ</th>
+            <th>ลำดับทีม</th>
+            <th>โรงเรียน</th>
+            <th>ทีม</th>
+            <th>คะแนน</th>
+          </tr>
+        </thead>
+        <tbody>
+          {teams.map((team, index) => (
+            <tr key={team.id}>
+              <td>{index + 1}</td>
+              <td>{team.order}</td>
+              <td>{team.school || "-"}</td>
+              <td>{team.teamName || team.name}</td>
+              <td>{team.mainTotal ?? "-"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </section>
   );
 }

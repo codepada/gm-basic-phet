@@ -1,10 +1,11 @@
 export const LEVELS = [
-  { id: "el", label: "ประถมศึกษา" },
-  { id: "jh", label: "มัธยมศึกษาตอนต้น" },
-  { id: "sh", label: "มัธยมศึกษาตอนปลาย" },
+  { id: "el", label: "ประถมศึกษา", shortLabel: "ประถม" },
+  { id: "jh", label: "มัธยมศึกษาตอนต้น", shortLabel: "ม.ต้น" },
+  { id: "sh", label: "มัธยมศึกษาตอนปลาย", shortLabel: "ม.ปลาย" },
 ];
 
 export const LEVEL_LABELS = Object.fromEntries(LEVELS.map((level) => [level.id, level.label]));
+export const LEVEL_SHORT_LABELS = Object.fromEntries(LEVELS.map((level) => [level.id, level.shortLabel]));
 
 export const ADMIN_ID = "admin";
 export const ADMIN_PASSWORD = "wgm2026";
