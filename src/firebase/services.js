@@ -249,6 +249,28 @@ export async function submitPkAttempt(levelId, session, attemptDraft, user) {
   });
 }
 
+export async function submitAssignedPkScore(levelId, teamId, pkRound, attemptDraft, user) {
+  const score = pkScore(attemptDraft);
+  const attemptRef = doc(pkAttemptsCol(levelId), `${teamId}-pk${pkRound}-${user.uid}`);
+  await setDoc(attemptRef, {
+    ...stripUndefined(attemptDraft),
+    levelId,
+    teamId,
+    pkRound,
+    score,
+    updatedAt: serverTimestamp(),
+    updatedBy: user.uid,
+  }, { merge: true });
+  await addAudit(levelId, user, {
+    teamId,
+    action: "pkScore.submit",
+    before: null,
+    after: { pkRound, score },
+    reason: "",
+  });
+  return { score };
+}
+
 export async function addAudit(levelId, user, payload) {
   await addDoc(auditLogsCol(levelId), {
     ...payload,

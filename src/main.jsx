@@ -14,12 +14,12 @@ import {
   PK_POLICY,
   TARGETS,
 } from "./core/constants.js";
-import { mainScore, missionScore, smoothnessReady, smoothnessScore } from "./core/scoring.js";
+import { mainScore, missionScore, pkScore, smoothnessReady, smoothnessScore } from "./core/scoring.js";
 import { pkNeededForMain } from "./core/pk.js";
 import { nextUnscoredTeam } from "./core/teams.js";
 import { sampleTeams } from "./data/sampleTeams.js";
 import { auth, isFirebaseConfigured } from "./firebase/config.js";
-import { listenMainScores, listenSettings, listenTeams, resetLevelMainScores, saveSettings, saveTeamSetup, submitMainScore } from "./firebase/services.js";
+import { listenMainScores, listenSettings, listenTeams, resetLevelMainScores, saveSettings, saveTeamSetup, submitAssignedPkScore, submitMainScore } from "./firebase/services.js";
 import "./styles/app.css";
 
 const initialTeams = Object.fromEntries(
@@ -146,6 +146,12 @@ function pkRoundLabels(roundsByTeam, teamId) {
   return [...new Set(rounds.map(Number).filter(Boolean))].sort((a, b) => a - b).map((round) => `PK${round}`);
 }
 
+function currentPkRoundForTeam(settings, levelId, teamId) {
+  const rounds = settings.pkRoundsByLevel?.[levelId]?.[teamId];
+  if (!Array.isArray(rounds) || !rounds.length) return 1;
+  return Math.max(1, ...rounds.map(Number).filter(Boolean));
+}
+
 function loginEmailForId(id) {
   return `${id.toLowerCase()}@${AUTH_EMAIL_DOMAIN}`;
 }
@@ -192,6 +198,7 @@ function App() {
   const [scores, setScores] = useState(() => readStoredValue(STORAGE_KEYS.scores, {}));
   const [settings, setSettings] = useState(() => ({ ...defaultSettings(), ...readStoredValue(STORAGE_KEYS.settings, {}) }));
   const [selectedTeam, setSelectedTeam] = useState(null);
+  const [selectedPkTeam, setSelectedPkTeam] = useState(null);
   const [saveResult, setSaveResult] = useState(null);
   const [awardCutoff, setAwardCutoff] = useState(6);
   const [pkPolicy, setPkPolicy] = useState(PK_POLICY.podiumCutoff);
@@ -246,6 +253,7 @@ function App() {
         setSession(null);
         setRole("");
         setSelectedTeam(null);
+        setSelectedPkTeam(null);
         setSaveResult(null);
         return;
       }
@@ -377,6 +385,38 @@ function App() {
     ]);
     setSelectedTeam(null);
     setSaveResult({ savedTeam: { ...team, name: fullTeamName(team) }, nextTeam: nextTeam ? { ...nextTeam, name: fullTeamName(nextTeam) } : null, total: breakdown.total });
+  };
+
+  const savePkScore = async (team, draft) => {
+    const pkRound = currentPkRoundForTeam(settings, levelId, team.id);
+    const score = pkScore(draft);
+    if (isFirebaseConfigured) {
+      setSyncStatus("กำลังบันทึกคะแนน PK...");
+      setSyncError("");
+      try {
+        assertFirebaseSessionMatchesRole(role, levelId);
+        await submitAssignedPkScore(levelId, team.id, pkRound, draft, { uid: role, role });
+        setSyncStatus("บันทึกคะแนน PK สำเร็จ");
+      } catch (error) {
+        setSyncStatus("บันทึกคะแนน PK ไม่สำเร็จ");
+        setSyncError(firebaseSaveErrorMessage(error));
+        throw error;
+      }
+    }
+    setAuditLogs((current) => [
+      {
+        id: crypto.randomUUID(),
+        at: new Date().toISOString(),
+        judge: role,
+        levelId,
+        team: fullTeamName(team),
+        action: "pkScore.submit",
+        after: { pkRound, score },
+      },
+      ...current,
+    ]);
+    setSelectedPkTeam(null);
+    setSaveResult({ savedTeam: { ...team, name: fullTeamName(team) }, nextTeam: null, total: score, mode: "pk", pkRound });
   };
 
   const saveTeamsFromAdmin = async (entries) => {
@@ -519,6 +559,7 @@ function App() {
     setRole(cleanId);
     setLevelId(cleanId === ADMIN_ID ? "el" : JUDGE_LEVEL_BY_ID[cleanId] || "el");
     setSelectedTeam(null);
+    setSelectedPkTeam(null);
     setSaveResult(null);
   };
 
@@ -527,6 +568,7 @@ function App() {
     setSession(null);
     setRole("");
     setSelectedTeam(null);
+    setSelectedPkTeam(null);
     setSaveResult(null);
   };
 
@@ -554,6 +596,11 @@ function App() {
 
   if (selectedTeam) {
     return <ScoreWizard key={selectedTeam.id} levelId={levelId} team={selectedTeam} existing={scores[selectedTeam.id]} onCancel={() => setSelectedTeam(null)} onSave={saveMainScore} />;
+  }
+
+  if (selectedPkTeam) {
+    const pkRound = currentPkRoundForTeam(settings, levelId, selectedPkTeam.id);
+    return <PkScoreWizard key={`${selectedPkTeam.id}-pk${pkRound}`} levelId={levelId} team={selectedPkTeam} pkRound={pkRound} onCancel={() => setSelectedPkTeam(null)} onSave={savePkScore} />;
   }
 
   const currentJudgeAssignment = role === ADMIN_ID ? null : clampAssignmentForTeamCount(settings.judgeAssignments?.[role], teams.length);
@@ -593,7 +640,7 @@ function App() {
           }}
         />
       ) : (
-        <JudgePage teams={visibleTeams} allTeams={enrichedTeams} scores={scores} assignment={currentJudgeAssignment} pkOrders={pkOrdersForJudge(settings, role)} onScore={setSelectedTeam} />
+        <JudgePage teams={visibleTeams} allTeams={enrichedTeams} scores={scores} assignment={currentJudgeAssignment} pkOrders={pkOrdersForJudge(settings, role)} onScore={setSelectedTeam} onPkScore={setSelectedPkTeam} />
       )}
     </main>
   );
@@ -679,6 +726,7 @@ function SyncBanner({ status, error }) {
 }
 
 function SaveCompletePage({ result, levelId, onNext, onList }) {
+  const isPk = result.mode === "pk";
   return (
     <main className={`app-shell save-complete-shell level-theme-${levelId}`}>
       <section className="panel save-complete-card">
@@ -688,17 +736,17 @@ function SaveCompletePage({ result, levelId, onNext, onList }) {
         </div>
 
         <div className="save-total">
-          <span>คะแนนรวม</span>
+          <span>{isPk ? `คะแนน PK${result.pkRound || ""}` : "คะแนนรวม"}</span>
           <strong>{result.total}</strong>
         </div>
 
         <div className="save-next">
-          <span>ทีมถัดไป</span>
-          <strong>{result.nextTeam ? result.nextTeam.name : "ครบทุกทีมแล้ว"}</strong>
+          <span>{isPk ? "สถานะ" : "ทีมถัดไป"}</span>
+          <strong>{isPk ? "บันทึก PK แล้ว" : result.nextTeam ? result.nextTeam.name : "ครบทุกทีมแล้ว"}</strong>
         </div>
 
         <div className="save-actions">
-          <button disabled={!result.nextTeam} onClick={onNext}>ให้คะแนนทีมถัดไป</button>
+          {!isPk ? <button disabled={!result.nextTeam} onClick={onNext}>ให้คะแนนทีมถัดไป</button> : null}
           <button className="ghost" onClick={onList}>กลับรายชื่อทีม</button>
         </div>
       </section>
@@ -718,7 +766,7 @@ function LevelTabs({ levelId, setLevelId }) {
   );
 }
 
-function JudgePage({ teams, allTeams, scores, assignment, pkOrders, onScore }) {
+function JudgePage({ teams, allTeams, scores, assignment, pkOrders, onScore, onPkScore }) {
   const [viewingScore, setViewingScore] = useState(null);
   const isEnabled = assignment?.enabled !== false;
   const pkOrderSet = new Set((pkOrders || []).map(Number));
@@ -749,7 +797,7 @@ function JudgePage({ teams, allTeams, scores, assignment, pkOrders, onScore }) {
                   <strong>{team.order}. {team.teamName || team.name}</strong>
                   <span>{team.school || "ไม่ระบุโรงเรียน"}</span>
                 </div>
-                <button onClick={() => onScore(team)}>ไปให้คะแนน</button>
+                <button onClick={() => onPkScore(team)}>ไปให้คะแนน</button>
               </article>
             ))}
           </div>
@@ -1626,6 +1674,92 @@ function ScoreWizard({ levelId, team, existing, onCancel, onSave }) {
   );
 }
 
+function PkScoreWizard({ levelId, team, pkRound, onCancel, onSave }) {
+  const pkShotIndex = 1;
+  const [shot, setShot] = useState(() => blankShot(false));
+  const [step, setStep] = useState(0);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const shots = [blankShot(false), shot];
+  const score = pkScore(shot);
+  const shotBreakdown = {
+    auto: shot.autoLaunch ? 2 : 0,
+    smoothness: null,
+    mission: missionScore(shot),
+    total: score,
+  };
+  const steps = buildPkWizardSteps(pkRound, pkShotIndex);
+  const activeStep = steps[step];
+  const isLastStep = step === steps.length - 1;
+  const currentStepReady = wizardStepReady(activeStep, null, shots);
+  const allReady = shotReady(shot, pkShotIndex);
+  const firstIncompleteStep = steps.findIndex((item) => !wizardStepReady(item, null, shots));
+
+  const handleSave = async () => {
+    if (!window.confirm(`ยืนยันบันทึกคะแนน PK${pkRound} ${team.teamName || team.name} หรือไม่?`)) return;
+    setIsSaving(true);
+    setSaveError("");
+    try {
+      await onSave(team, shot);
+    } catch (error) {
+      setSaveError(error.message || "บันทึก PK ไม่สำเร็จ");
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <main className={`app-shell wizard-shell level-theme-${levelId}`}>
+      <header className="topbar">
+        <div>
+          <p className="eyebrow team-heading">{team.teamName || team.name}</p>
+          {team.school ? <p className="school-heading">{team.school}</p> : null}
+          <h1>ให้คะแนน PK{pkRound}</h1>
+        </div>
+        <button className="ghost" onClick={onCancel}>ปิด</button>
+      </header>
+
+      <WizardProgress step={step} steps={steps} setStep={setStep} />
+
+      {activeStep.type === "shot" ? (
+        <ShotStepCard
+          phase={activeStep.phase}
+          index={pkShotIndex}
+          displayLabel={`PK${pkRound}`}
+          shot={shot}
+          onChange={(patch) => setShot((current) => ({ ...current, ...patch }))}
+        />
+      ) : null}
+      {activeStep.type === "shotSummary" ? (
+        <ShotSummaryStep
+          index={pkShotIndex}
+          displayLabel={`PK${pkRound}`}
+          shot={shot}
+          breakdown={shotBreakdown}
+        />
+      ) : null}
+
+      <section className="sticky-total">
+        <div>
+          <span>PK</span>
+          <strong>{score}</strong>
+        </div>
+        <div className="wizard-actions">
+          <button className="ghost" disabled={step === 0} onClick={() => setStep((current) => Math.max(0, current - 1))}>ย้อนกลับ</button>
+          {isLastStep ? (
+            <button disabled={!allReady || isSaving} onClick={handleSave}>{isSaving ? "กำลังบันทึก..." : "บันทึก PK"}</button>
+          ) : (
+            <button disabled={!currentStepReady} onClick={() => setStep((current) => Math.min(steps.length - 1, current + 1))}>ถัดไป</button>
+          )}
+          {isLastStep && !allReady ? (
+            <span className="save-hint">ยังไม่ครบ: {firstIncompleteStep >= 0 ? steps[firstIncompleteStep].title : "คะแนน PK"}</span>
+          ) : null}
+          {saveError ? <span className="save-hint">{saveError}</span> : null}
+        </div>
+      </section>
+    </main>
+  );
+}
+
 function buildWizardSteps() {
   const shotSteps = [0, 1, 2].flatMap((shotIndex) => [
     { type: "shot", shotIndex, phase: "position", shortLabel: `${shotIndex + 1}.1`, title: `ยิงครั้งที่ ${shotIndex + 1}: ตำแหน่งลูกบอล` },
@@ -1638,6 +1772,16 @@ function buildWizardSteps() {
     { type: "device", shortLabel: "1", title: "เลือกจำนวนอุปกรณ์" },
     ...shotSteps,
     { type: "summary", shortLabel: "สรุป", title: "สรุปคะแนน" },
+  ];
+}
+
+function buildPkWizardSteps(pkRound, shotIndex) {
+  return [
+    { type: "shot", shotIndex, phase: "position", shortLabel: "PK.1", title: `PK${pkRound}: ตำแหน่งลูกบอล` },
+    { type: "shot", shotIndex, phase: "distance", shortLabel: "PK.2", title: `PK${pkRound}: ระยะยิง` },
+    { type: "shot", shotIndex, phase: "operation", shortLabel: "PK.3", title: `PK${pkRound}: การทำงาน` },
+    { type: "shot", shotIndex, phase: "score", shortLabel: "PK.4", title: `PK${pkRound}: คะแนนพื้นที่` },
+    { type: "shotSummary", shotIndex, shortLabel: "สรุป", title: `สรุป PK${pkRound}` },
   ];
 }
 
@@ -1779,14 +1923,15 @@ function SummaryStep({ existing, reason, setReason, deviceCount, shots, breakdow
   );
 }
 
-function ShotSummaryStep({ index, shot, breakdown }) {
+function ShotSummaryStep({ index, shot, breakdown, displayLabel }) {
   const maxScore = maxShotScore(shot, index);
+  const label = displayLabel || `ยิงครั้งที่ ${index + 1}`;
   return (
     <section className="panel scoring-step shot-summary-step">
       <div className="shot-title">
         <div>
-          <p className="eyebrow">ตรวจสอบก่อนครั้งถัดไป</p>
-          <h2>สรุปการยิงครั้งที่ {index + 1}</h2>
+          <p className="eyebrow">{displayLabel ? "ตรวจสอบก่อนบันทึก" : "ตรวจสอบก่อนครั้งถัดไป"}</p>
+          <h2>สรุป {label}</h2>
         </div>
         <strong>{breakdown.total}/{maxScore}</strong>
       </div>
@@ -1807,9 +1952,10 @@ function ShotSummaryStep({ index, shot, breakdown }) {
   );
 }
 
-function ShotStepCard({ index, phase, shot, onChange }) {
+function ShotStepCard({ index, phase, shot, onChange, displayLabel }) {
   const mission = missionScore(shot);
   const smooth = index === 0 && smoothnessReady(shot) ? smoothnessScore(shot.handCount, shot.droppedPartsCount) : null;
+  const label = displayLabel || `ยิงครั้งที่ ${index + 1}`;
   const phaseTitles = {
     position: "ตำแหน่งลูกบอลที่ยิง",
     distance: "ระยะยิง",
@@ -1821,8 +1967,8 @@ function ShotStepCard({ index, phase, shot, onChange }) {
     <section className={`panel shot-panel scoring-step phase-${phase}${phase === "operation" && index === 0 ? " phase-operation-smooth" : ""}`}>
       <div className="shot-title">
         <div>
-          <p className="eyebrow">รอบแรก</p>
-          <h2>ยิงครั้งที่ {index + 1}</h2>
+          <p className="eyebrow">{displayLabel ? "PK" : "รอบแรก"}</p>
+          <h2>{label}</h2>
         </div>
         <strong>{mission} คะแนน</strong>
       </div>
