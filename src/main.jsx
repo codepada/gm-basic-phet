@@ -1857,12 +1857,12 @@ function BallResultChoice({ ballIndex, shot, onChange }) {
   const options = shot.target === TARGETS.point3
     ? [
         { value: "", label: "ไม่ได้", points: 0, tone: "result-zero" },
-        { value: "score", label: "เข้า", points: 10, tone: "result-score" },
+        { value: "score", label: "บอลอยู่ในเป้า", points: 10, tone: "result-score" },
       ]
     : [
         { value: "", label: "0", points: 0, tone: "result-zero" },
-        { value: "C", label: "C", points: 3, tone: "result-c" },
         { value: "B", label: "B", points: 4, tone: "result-b" },
+        { value: "C", label: "C", points: 3, tone: "result-c" },
         { value: "A", label: "A", points: 5, tone: "result-a" },
       ];
 
@@ -1875,7 +1875,7 @@ function BallResultChoice({ ballIndex, shot, onChange }) {
   return (
     <div className={touched ? "ball-card disabled" : "ball-card"}>
       <strong>ลูกที่ {ballIndex + 1}</strong>
-      <ChoiceGrid columns={shot.target === TARGETS.point3 ? 2 : 4}>
+      <ChoiceGrid columns={2}>
         {options.map((option) => (
           <button key={option.value} disabled={touched} className={`choice ${option.tone}${result === option.value ? " active" : ""}`} onClick={() => setResult(option.value)}>
             <span>{option.label}</span>
