@@ -738,11 +738,19 @@ h2 {
   font-weight: 900;
 }
 
+.print-table-wrap {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 .results-table {
   width: 100%;
   border-collapse: collapse;
   background: white;
   table-layout: fixed;
+  font-size: clamp(0.72rem, 2.15vw, 0.95rem);
 }
 
 .results-table col.rank-col {
@@ -791,8 +799,8 @@ h2 {
 
 .results-table td:nth-child(3),
 .results-table td:nth-child(4) {
-  overflow-wrap: normal;
-  word-break: keep-all;
+  overflow-wrap: break-word;
+  word-break: normal;
   hyphens: none;
   line-height: 1.35;
 }
@@ -1862,8 +1870,52 @@ textarea {
     min-height: 50px;
   }
 
+  .print-results {
+    padding-inline: 8px;
+  }
+
+  .print-table-wrap {
+    margin-inline: -4px;
+    padding-bottom: 4px;
+  }
+
   .results-table {
-    font-size: 0.82rem;
+    font-size: clamp(0.62rem, 2.55vw, 0.82rem);
+  }
+
+  .results-table th,
+  .results-table td {
+    padding: 5px 4px;
+  }
+
+  .results-table col.rank-col {
+    width: 8%;
+  }
+
+  .results-table col.order-col {
+    width: 9%;
+  }
+
+  .results-table col.school-col,
+  .results-table col.team-col {
+    width: 32%;
+  }
+
+  .results-table col.pk-col {
+    width: 11%;
+  }
+
+  .results-table col.score-col {
+    width: 8%;
+  }
+
+  .results-table .pk-badges {
+    gap: 2px;
+  }
+
+  .results-table .pk-badges b {
+    padding-inline: 3px;
+    font-size: 0.62rem;
   }
 
   .team-name-grid {
@@ -2228,10 +2280,19 @@ textarea {
     display: grid !important;
   }
 
+  .print-table-wrap {
+    overflow: visible;
+  }
+
+  .results-table {
+    font-size: 10px;
+  }
+
   .results-table th,
   .results-table td {
     color: #000;
     border-color: #444;
+    padding: 4px 5px;
   }
 }
 

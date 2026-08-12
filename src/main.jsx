@@ -1782,19 +1782,21 @@ function PrintResultsPage({ levelId, teams, pkRounds, pkAttempts }) {
             .eyebrow { margin: 0 0 4px; font-size: 12px; font-weight: 700; text-transform: uppercase; }
             h2 { margin: 0 0 16px; }
             .print-note { font-size: 12px; }
+            .print-table-wrap { width: 100%; overflow: visible; }
             .results-table col.rank-col { width: 9%; }
             .results-table col.order-col { width: 10%; }
             .results-table col.school-col { width: 30%; }
             .results-table col.team-col { width: 31%; }
             .results-table col.pk-col { width: 12%; }
             .results-table col.score-col { width: 8%; }
-            table { width: 100%; border-collapse: collapse; }
-            th, td { border: 1px solid #444; padding: 8px; vertical-align: middle; }
+            table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: clamp(10px, 1.4vw, 12px); }
+            th, td { border: 1px solid #444; padding: 5px 6px; vertical-align: middle; }
             th { background: #e6efeb; text-align: center; }
             td:nth-child(1), td:nth-child(2), td:nth-child(5), td:nth-child(6) { text-align: center; white-space: nowrap; }
-            td:nth-child(3), td:nth-child(4) { overflow-wrap: normal; word-break: keep-all; hyphens: none; line-height: 1.35; }
+            td:nth-child(3), td:nth-child(4) { overflow-wrap: break-word; word-break: normal; hyphens: none; line-height: 1.35; }
             .pk-badges { display: inline-flex; flex-wrap: wrap; gap: 4px; }
-            .pk-badges b { border: 1px solid #444; border-radius: 4px; padding: 1px 5px; font-size: 11px; }
+            .pk-badges b { border: 1px solid #444; border-radius: 4px; padding: 1px 4px; font-size: 10px; }
+            @page { size: A4 landscape; margin: 10mm; }
           </style>
         </head>
         <body>${content}</body>
@@ -1814,42 +1816,44 @@ function PrintResultsPage({ levelId, teams, pkRounds, pkAttempts }) {
         <button type="button" onClick={handlePrint}>พิมพ์ผล</button>
       </div>
       <p className="print-note">ตารางนี้เรียงคะแนนสูงสุดไว้ด้านบน ทีมที่ยังไม่มีคะแนนจะแสดงท้ายตารางและยังไม่ถูกจัดอันดับ</p>
-      <table className="results-table">
-        <colgroup>
-          <col className="rank-col" />
-          <col className="order-col" />
-          <col className="school-col" />
-          <col className="team-col" />
-          <col className="pk-col" />
-          <col className="score-col" />
-        </colgroup>
-        <thead>
-          <tr>
-            <th>อันดับ</th>
-            <th>ลำดับทีม</th>
-            <th>โรงเรียน</th>
-            <th>ทีม</th>
-            <th>PK</th>
-            <th>คะแนน</th>
-          </tr>
-        </thead>
-        <tbody>
-          {teams.map((team) => {
-            const hasScore = Number.isFinite(team.mainTotal);
-            if (hasScore) scoredRank += 1;
-            return (
-              <tr key={team.id} className={hasScore ? "" : "unscored-row"}>
-                <td>{hasScore ? scoredRank : "-"}</td>
-                <td>{team.order}</td>
-                <td>{team.school || "-"}</td>
-                <td>{displayTeamName(team)}</td>
-                <td><PkScoreBadges rounds={pkRounds[team.id] || []} scores={pkScoresForTeam(pkAttempts, team.id)} /></td>
-                <td>{team.mainTotal ?? "-"}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      <div className="print-table-wrap">
+        <table className="results-table">
+          <colgroup>
+            <col className="rank-col" />
+            <col className="order-col" />
+            <col className="school-col" />
+            <col className="team-col" />
+            <col className="pk-col" />
+            <col className="score-col" />
+          </colgroup>
+          <thead>
+            <tr>
+              <th>อันดับ</th>
+              <th>ลำดับทีม</th>
+              <th>โรงเรียน</th>
+              <th>ทีม</th>
+              <th>PK</th>
+              <th>คะแนน</th>
+            </tr>
+          </thead>
+          <tbody>
+            {teams.map((team) => {
+              const hasScore = Number.isFinite(team.mainTotal);
+              if (hasScore) scoredRank += 1;
+              return (
+                <tr key={team.id} className={hasScore ? "" : "unscored-row"}>
+                  <td>{hasScore ? scoredRank : "-"}</td>
+                  <td>{team.order}</td>
+                  <td>{team.school || "-"}</td>
+                  <td>{displayTeamName(team)}</td>
+                  <td><PkScoreBadges rounds={pkRounds[team.id] || []} scores={pkScoresForTeam(pkAttempts, team.id)} /></td>
+                  <td>{team.mainTotal ?? "-"}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </section>
   );
 }
