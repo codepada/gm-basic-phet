@@ -124,6 +124,27 @@ function authPasswordForLogin(id, password) {
   return password === "1234" ? "123456" : password;
 }
 
+function assertFirebaseSessionMatchesRole(role, levelId) {
+  const firebaseRole = loginIdFromEmail(auth?.currentUser?.email);
+  if (!firebaseRole) {
+    throw new Error("ไม่พบบัญชี Firebase ที่ล็อกอินอยู่ กรุณากดออกแล้วเข้าสู่ระบบใหม่");
+  }
+  if (firebaseRole !== role) {
+    throw new Error(`บัญชีที่ล็อกอินจริงคือ ${firebaseRole.toUpperCase()} แต่หน้าเว็บเป็น ${role.toUpperCase()} กรุณากดออกแล้วเข้าสู่ระบบใหม่`);
+  }
+  if (role !== ADMIN_ID && JUDGE_LEVEL_BY_ID[role] !== levelId) {
+    throw new Error(`${role.toUpperCase()} ไม่มีสิทธิ์บันทึกระดับ ${LEVEL_LABELS[levelId]} กรุณากดออกแล้วเข้าสู่ระบบใหม่`);
+  }
+}
+
+function firebaseSaveErrorMessage(error) {
+  if (error?.code === "permission-denied") {
+    const firebaseRole = loginIdFromEmail(auth?.currentUser?.email);
+    return `Firebase ปฏิเสธสิทธิ์บันทึก${firebaseRole ? ` ของ ${firebaseRole.toUpperCase()}` : ""} กรุณากดออกแล้วเข้าสู่ระบบใหม่ แล้วลองบันทึกอีกครั้ง`;
+  }
+  return error.message;
+}
+
 function App() {
   const [session, setSession] = useState(() => {
     const stored = readStoredValue(STORAGE_KEYS.session, null);
@@ -289,12 +310,15 @@ function App() {
       setSyncStatus("กำลัง sync Firebase...");
       setSyncError("");
       try {
+        assertFirebaseSessionMatchesRole(role, levelId);
+        await auth.currentUser?.getIdToken(true);
         await submitMainScore(levelId, team.id, after, { uid: role, role }, reason);
         setSyncStatus("sync Firebase สำเร็จ");
       } catch (error) {
+        const message = firebaseSaveErrorMessage(error);
         setSyncStatus("sync Firebase ไม่สำเร็จ");
-        setSyncError(error.message);
-        throw new Error(`บันทึก Firebase ไม่สำเร็จ: ${error.message}`);
+        setSyncError(message);
+        throw new Error(`บันทึก Firebase ไม่สำเร็จ: ${message}`);
       }
     }
 
