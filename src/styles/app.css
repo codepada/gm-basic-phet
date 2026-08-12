@@ -313,6 +313,23 @@ h2 {
   gap: 12px;
 }
 
+.panel-action-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.panel-action-head h2 {
+  margin-top: 2px;
+}
+
+.danger-text-button {
+  color: #a32020;
+  border-color: #f0c2c2;
+  background: #fff7f7;
+}
+
 .team-setup {
   gap: 14px;
 }
@@ -1835,6 +1852,7 @@ textarea {
   }
 
   .panel-heading,
+  .panel-action-head,
   .team-name-grid {
     grid-template-columns: 1fr;
   }

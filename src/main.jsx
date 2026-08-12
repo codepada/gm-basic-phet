@@ -19,7 +19,7 @@ import { pkNeededForMain } from "./core/pk.js";
 import { nextUnscoredTeam } from "./core/teams.js";
 import { sampleTeams } from "./data/sampleTeams.js";
 import { auth, isFirebaseConfigured } from "./firebase/config.js";
-import { listenMainScores, listenPkAttempts, listenSettings, listenTeams, resetLevelMainScores, saveSettings, saveTeamSetup, submitAssignedPkScore, submitMainScore } from "./firebase/services.js";
+import { clearAuditLogs, listenAuditLogs, listenMainScores, listenPkAttempts, listenSettings, listenTeams, resetLevelMainScores, saveSettings, saveTeamSetup, submitAssignedPkScore, submitMainScore } from "./firebase/services.js";
 import "./styles/app.css";
 
 const initialTeams = Object.fromEntries(
@@ -539,6 +539,21 @@ function App() {
   }, [authReady, levelId, session?.role]);
 
   useEffect(() => {
+    if (!isFirebaseConfigured || !session || !authReady) return undefined;
+    const unsubscribe = listenAuditLogs(
+      levelId,
+      (remoteLogs) => {
+        setAuditLogs(remoteLogs);
+      },
+      (error) => {
+        setSyncStatus("อ่าน Audit Log จาก Firebase ไม่ได้");
+        setSyncError(error.message);
+      },
+    );
+    return unsubscribe;
+  }, [authReady, levelId, session?.role]);
+
+  useEffect(() => {
     if (!isFirebaseConfigured || !session || !authReady || !role) return;
     const levelTeams = (teamsByLevel[levelId] || []).map((team) => ({
       ...team,
@@ -813,6 +828,26 @@ function App() {
     return true;
   };
 
+  const clearAuditLogsFromAdmin = async () => {
+    const levelLabel = LEVEL_LABELS[levelId];
+    if (!window.confirm(`ยืนยันเคลียร์ Audit Log ของ ${levelLabel} หรือไม่?\nการล้างนี้ไม่กระทบคะแนนหรือรายชื่อทีม`)) return false;
+    setAuditLogs([]);
+
+    if (isFirebaseConfigured) {
+      setSyncStatus("กำลังเคลียร์ Audit Log...");
+      setSyncError("");
+      try {
+        const deletedCount = await clearAuditLogs(levelId);
+        setSyncStatus(`เคลียร์ Audit Log ${levelLabel} แล้ว ${deletedCount} รายการ`);
+      } catch (error) {
+        setSyncStatus("เคลียร์ Audit Log ในหน้าจอแล้ว แต่ Firebase ไม่สำเร็จ");
+        setSyncError(error.message);
+        throw error;
+      }
+    }
+    return true;
+  };
+
   const handleLogin = async ({ id, password }) => {
     const cleanId = id.toLowerCase();
     if (!LOGIN_IDS.includes(cleanId)) throw new Error("ไม่พบ ID นี้");
@@ -898,6 +933,7 @@ function App() {
           setPkPolicy={setPkPolicy}
           onSaveTeamSetup={saveTeamsFromAdmin}
           onResetScores={resetScoresFromAdmin}
+          onClearAuditLogs={clearAuditLogsFromAdmin}
           onSaveSettings={async (nextSettings) => {
             setSettings((current) => ({ ...current, ...nextSettings }));
             if (isFirebaseConfigured) await saveSettings(nextSettings, { uid: ADMIN_ID });
@@ -1137,13 +1173,15 @@ function JudgePage({ teams, allTeams, scores, settings, levelId, assignment, pkO
   );
 }
 
-function AdminPage({ levelId, teams, scores, pkAttempts, auditLogs, settings, isCloudReady, setupStatus, awardCutoff, setAwardCutoff, pkPolicy, setPkPolicy, onSaveTeamSetup, onResetScores, onSaveSettings }) {
+function AdminPage({ levelId, teams, scores, pkAttempts, auditLogs, settings, isCloudReady, setupStatus, awardCutoff, setAwardCutoff, pkPolicy, setPkPolicy, onSaveTeamSetup, onResetScores, onClearAuditLogs, onSaveSettings }) {
   const [adminTab, setAdminTab] = useState("dashboard");
   const [viewingScore, setViewingScore] = useState(null);
   const [pkSettingsStatus, setPkSettingsStatus] = useState("");
   const [resetStatus, setResetStatus] = useState("");
+  const [auditStatus, setAuditStatus] = useState("");
   const [selectedPkTeamIds, setSelectedPkTeamIds] = useState([]);
   const completed = teams.filter((team) => scores[team.id]);
+  const levelAuditLogs = auditLogs.filter((log) => !log.levelId || log.levelId === levelId);
   const mainRanking = sortTeamsForResults(teams, pkAttempts);
   const pkNeeds = completed.length === teams.length ? pkNeededForMain(completed, awardCutoff, pkPolicy) : [];
   const pkTeamIds = new Set(pkNeeds.flatMap((need) => need.teamIds));
@@ -1176,6 +1214,16 @@ function AdminPage({ levelId, teams, scores, pkAttempts, auditLogs, settings, is
       if (didReset) setResetStatus("รีเซ็ตคะแนนระดับนี้แล้ว พร้อมให้กรรมการทดสอบใหม่");
     } catch (error) {
       setResetStatus(error.message || "รีเซ็ตคะแนนไม่สำเร็จ");
+    }
+  };
+
+  const clearLevelAuditLogs = async () => {
+    setAuditStatus("");
+    try {
+      const didClear = await onClearAuditLogs();
+      if (didClear) setAuditStatus(`เคลียร์ Audit Log ${LEVEL_LABELS[levelId]} แล้ว`);
+    } catch (error) {
+      setAuditStatus(error.message || "เคลียร์ Audit Log ไม่สำเร็จ");
     }
   };
 
@@ -1302,15 +1350,23 @@ function AdminPage({ levelId, teams, scores, pkAttempts, auditLogs, settings, is
             </div>
           </section>
 
-          <section className="panel">
-            <h2>Audit Log</h2>
+          <section className="panel audit-panel">
+            <div className="panel-action-head">
+              <div>
+                <p className="eyebrow">Audit Log</p>
+                <h2>ประวัติ {LEVEL_LABELS[levelId]}</h2>
+              </div>
+              <button type="button" className="ghost danger-text-button" disabled={!levelAuditLogs.length} onClick={clearLevelAuditLogs}>เคลียร์ Log ระดับนี้</button>
+            </div>
+            <p className={auditStatus.includes("ไม่สำเร็จ") ? "danger" : "muted"}>{auditStatus || `แสดงเฉพาะ ${LEVEL_LABELS[levelId]} • ${levelAuditLogs.length} รายการ`}</p>
             <div className="audit-list">
-              {auditLogs.map((log) => (
+              {levelAuditLogs.map((log) => (
                 <div key={log.id}>
                   <strong>{log.action}</strong>
-                  <span>{log.team} • {log.judge} • {new Date(log.at).toLocaleString("th-TH")}</span>
+                  <span>{log.team || log.teamId || "-"} • {log.judge || "-"} • {formatLogTime(log.createdAt || log.at)}</span>
                 </div>
               ))}
+              {!levelAuditLogs.length ? <p className="muted">ยังไม่มี Audit Log ของระดับนี้</p> : null}
             </div>
           </section>
         </>
@@ -1480,6 +1536,10 @@ function formatSavedAt(value) {
   const date = value?.toDate ? value.toDate() : new Date(value);
   if (Number.isNaN(date.getTime())) return "";
   return date.toLocaleString("th-TH");
+}
+
+function formatLogTime(value) {
+  return formatSavedAt(value) || "-";
 }
 
 function JudgeAssignmentPanel({ levelId, teams, assignments, onSave }) {

@@ -48,6 +48,16 @@ export function listenPkAttempts(levelId, callback, onError) {
   );
 }
 
+export function listenAuditLogs(levelId, callback, onError) {
+  return onSnapshot(
+    query(auditLogsCol(levelId), orderBy("createdAt", "desc")),
+    (snapshot) => {
+      callback(snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })));
+    },
+    onError,
+  );
+}
+
 export function listenSettings(callback, onError) {
   return onSnapshot(
     settingsRef(),
@@ -289,6 +299,16 @@ export async function addAudit(levelId, user, payload) {
     judgeRole: user?.role || "unknown",
     createdAt: serverTimestamp(),
   });
+}
+
+export async function clearAuditLogs(levelId) {
+  const snapshot = await getDocs(auditLogsCol(levelId));
+  const batch = writeBatch(db);
+  snapshot.docs.forEach((docSnap) => {
+    batch.delete(docSnap.ref);
+  });
+  await batch.commit();
+  return snapshot.size;
 }
 
 export async function saveSettings(settings, user) {
