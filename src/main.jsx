@@ -171,6 +171,11 @@ function currentPkRoundForTeam(settings, levelId, teamId) {
   return Math.max(1, ...rounds.map(Number).filter(Boolean));
 }
 
+function pkStartedForLevel(settings, levelId) {
+  const roundsByTeam = settings.pkRoundsByLevel?.[levelId] || {};
+  return Object.values(roundsByTeam).some((rounds) => Array.isArray(rounds) && rounds.map(Number).some(Boolean));
+}
+
 function toMillis(value) {
   if (!value) return 0;
   if (value.toMillis) return value.toMillis();
@@ -392,6 +397,7 @@ function App() {
   const visibleTeams = role === ADMIN_ID
     ? enrichedTeams
     : enrichedTeams.filter((team) => teamWithinAssignment(team, settings.judgeAssignments?.[role]));
+  const pkStarted = pkStartedForLevel(settings, levelId);
 
   useEffect(() => {
     writeStoredValue(STORAGE_KEYS.teams, teamsByLevel);
@@ -420,6 +426,12 @@ function App() {
     if (session) writeStoredValue(STORAGE_KEYS.session, session);
     else window.localStorage.removeItem(STORAGE_KEYS.session);
   }, [session]);
+
+  useEffect(() => {
+    if (role !== ADMIN_ID && pkStarted) {
+      setSelectedTeam(null);
+    }
+  }, [pkStarted, role]);
 
   useEffect(() => {
     if (!isFirebaseConfigured || !auth) return undefined;
@@ -881,7 +893,7 @@ function App() {
           }}
         />
       ) : (
-        <JudgePage teams={visibleTeams} allTeams={enrichedTeams} scores={scores} settings={settings} levelId={levelId} assignment={currentJudgeAssignment} pkOrders={pkOrdersForJudge(settings, role)} pkAttempts={pkAttempts} onScore={setSelectedTeam} onPkScore={setSelectedPkTeam} />
+        <JudgePage teams={visibleTeams} allTeams={enrichedTeams} scores={scores} settings={settings} levelId={levelId} assignment={currentJudgeAssignment} pkOrders={pkOrdersForJudge(settings, role)} pkAttempts={pkAttempts} pkStarted={pkStarted} onScore={setSelectedTeam} onPkScore={setSelectedPkTeam} />
       )}
     </main>
   );
@@ -1007,7 +1019,7 @@ function LevelTabs({ levelId, setLevelId }) {
   );
 }
 
-function JudgePage({ teams, allTeams, scores, settings, levelId, assignment, pkOrders, pkAttempts, onScore, onPkScore }) {
+function JudgePage({ teams, allTeams, scores, settings, levelId, assignment, pkOrders, pkAttempts, pkStarted, onScore, onPkScore }) {
   const [viewingScore, setViewingScore] = useState(null);
   const isEnabled = assignment?.enabled !== false;
   const pkOrderSet = new Set((pkOrders || []).map(Number));
@@ -1033,7 +1045,7 @@ function JudgePage({ teams, allTeams, scores, settings, levelId, assignment, pkO
         <Metric label="จบแล้ว" value={teams.filter((team) => team.status === "main-complete").length} />
         <Metric label="ยังไม่จบ" value={teams.filter((team) => team.status !== "main-complete").length} />
       </div>
-      {assignment ? (
+      {assignment && !pkStarted && !isCompetitionFinal ? (
         <section className={isEnabled ? "panel assignment-note" : "panel assignment-note disabled"}>
           <strong>{isEnabled ? `ช่วงทีมที่รับผิดชอบ: ${assignment.from || 1}-${assignment.to || 999}` : "ID นี้ยังไม่ได้เปิดให้ลงคะแนน"}</strong>
           {pkOrders?.length ? <span>PK ที่ได้รับมอบหมาย: ทีมลำดับ {pkOrders.join(", ")}</span> : null}
@@ -1081,32 +1093,34 @@ function JudgePage({ teams, allTeams, scores, settings, levelId, assignment, pkO
           </div>
         </section>
       ) : null}
-      <div className="team-list">
-        {teams.map((team) => {
-          const score = scores[team.id];
-          return (
-            <article key={team.id} className="team-row">
-              <div className="team-order">{team.order}</div>
-              <div className="team-main">
-                <strong>{team.teamName || team.name}</strong>
-                <span>{team.school || "ไม่ระบุโรงเรียน"}</span>
-                <span>{score ? `ตรวจแล้ว • ยิงครบ 3 ครั้ง • ${score.total} คะแนน` : "รอให้คะแนน"}</span>
-              </div>
-              <div className="team-actions">
-                {score ? (
-                  <button className="ghost detail-button" onClick={() => setViewingScore({ team, score })}>
-                    <Eye size={16} aria-hidden="true" />
-                    ดูผล
+      {!pkStarted && !isCompetitionFinal ? (
+        <div className="team-list">
+          {teams.map((team) => {
+            const score = scores[team.id];
+            return (
+              <article key={team.id} className="team-row">
+                <div className="team-order">{team.order}</div>
+                <div className="team-main">
+                  <strong>{team.teamName || team.name}</strong>
+                  <span>{team.school || "ไม่ระบุโรงเรียน"}</span>
+                  <span>{score ? `ตรวจแล้ว • ยิงครบ 3 ครั้ง • ${score.total} คะแนน` : "รอให้คะแนน"}</span>
+                </div>
+                <div className="team-actions">
+                  {score ? (
+                    <button className="ghost detail-button" onClick={() => setViewingScore({ team, score })}>
+                      <Eye size={16} aria-hidden="true" />
+                      ดูผล
+                    </button>
+                  ) : null}
+                  <button className={score ? "edit-score-button" : ""} onClick={() => onScore(team)}>
+                    {score ? "แก้คะแนน" : "เริ่มให้คะแนน"}
                   </button>
-                ) : null}
-                <button className={score ? "edit-score-button" : ""} onClick={() => onScore(team)}>
-                  {score ? "แก้คะแนน" : "เริ่มให้คะแนน"}
-                </button>
-              </div>
-            </article>
-          );
-        })}
-      </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      ) : null}
       {viewingScore ? <ScoreDetailModal team={viewingScore.team} score={viewingScore.score} onClose={() => setViewingScore(null)} /> : null}
     </section>
   );
