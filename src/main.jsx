@@ -1591,7 +1591,10 @@ function JudgeAssignmentPanel({ levelId, teams, assignments, onSave }) {
   const judgeIds = JUDGE_IDS_BY_LEVEL[levelId] || [];
   const [draft, setDraft] = useState(() => ({ ...defaultSettings().judgeAssignments, ...assignments }));
   const [status, setStatus] = useState("");
+  const [showDisabled, setShowDisabled] = useState(false);
   const maxTeamOrder = teams.length || 999;
+  const visibleJudgeIds = judgeIds.filter((judgeId) => showDisabled || (draft[judgeId]?.enabled !== false));
+  const hiddenCount = judgeIds.length - visibleJudgeIds.length;
 
   useEffect(() => {
     setDraft({ ...defaultSettings().judgeAssignments, ...assignments });
@@ -1619,12 +1622,17 @@ function JudgeAssignmentPanel({ levelId, teams, assignments, onSave }) {
 
   return (
     <section className="panel assignment-panel">
-      <div>
-        <p className="eyebrow">Judge Assignment</p>
-        <h2>กำหนดทีมให้ ID กรรมการ</h2>
+      <div className="panel-action-head">
+        <div>
+          <p className="eyebrow">Judge Assignment</p>
+          <h2>กำหนดทีมให้ ID กรรมการ</h2>
+        </div>
+        <button type="button" className="ghost" disabled={!hiddenCount && !showDisabled} onClick={() => setShowDisabled((current) => !current)}>
+          {showDisabled ? "ซ่อน ID ที่ปิด" : `แสดง ID ปิด${hiddenCount ? ` (${hiddenCount})` : ""}`}
+        </button>
       </div>
       <div className="assignment-grid">
-        {judgeIds.map((judgeId) => {
+        {visibleJudgeIds.map((judgeId) => {
           const assignment = draft[judgeId] || { enabled: true, judgeName: "", from: 1, to: teams.length || 1, pkTeamOrder: "" };
           const enabled = assignment.enabled !== false;
           return (
@@ -1649,9 +1657,10 @@ function JudgeAssignmentPanel({ levelId, teams, assignments, onSave }) {
             </div>
           );
         })}
+        {!visibleJudgeIds.length ? <p className="muted">ไม่มี ID ที่เปิดใช้งานในระดับนี้</p> : null}
       </div>
       <div className="setup-actions">
-        <p className="muted">{status || "กำหนดช่วงทีมที่แต่ละ ID มองเห็น และเลือกทีม PK ได้ ID ละ 1 ทีม"}</p>
+        <p className="muted">{status || `กำหนดช่วงทีมที่แต่ละ ID มองเห็น${hiddenCount ? ` • ซ่อน ID ที่ปิด ${hiddenCount} รายการ` : ""}`}</p>
         <button onClick={handleSave}>บันทึกการมอบหมาย</button>
       </div>
     </section>
