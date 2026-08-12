@@ -1,4 +1,5 @@
 import { initializeApp } from "firebase/app";
+import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
@@ -20,6 +21,19 @@ export const isFirebaseConfigured = Boolean(
 );
 
 export const app = isFirebaseConfigured ? initializeApp(firebaseConfig) : null;
+const appCheckSiteKey = import.meta.env.VITE_FIREBASE_APPCHECK_SITE_KEY;
+const appCheckDebugToken = import.meta.env.VITE_FIREBASE_APPCHECK_DEBUG_TOKEN;
+
+if (appCheckDebugToken) {
+  globalThis.FIREBASE_APPCHECK_DEBUG_TOKEN = appCheckDebugToken;
+}
+
+export const appCheck = app && appCheckSiteKey
+  ? initializeAppCheck(app, {
+    provider: new ReCaptchaV3Provider(appCheckSiteKey),
+    isTokenAutoRefreshEnabled: true,
+  })
+  : null;
 export const auth = app ? getAuth(app) : null;
 export const db = app ? getFirestore(app) : null;
 export const storage = app ? getStorage(app) : null;

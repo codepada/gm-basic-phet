@@ -19,6 +19,58 @@ service cloud.firestore {
           );
       }
 
+      function canScoreLevel(levelId) {
+        return isAdmin() || isJudgeForLevel(levelId);
+      }
+
+      function validTeamStatus(status) {
+        return status == 'pending' || status == 'main-complete';
+      }
+
+      function validTeamWrite() {
+        return request.resource.data.name is string
+          && request.resource.data.name.size() <= 120
+          && request.resource.data.school is string
+          && request.resource.data.school.size() <= 120
+          && request.resource.data.teamName is string
+          && request.resource.data.teamName.size() <= 120
+          && request.resource.data.order is int
+          && request.resource.data.order >= 1
+          && request.resource.data.order <= 9999
+          && validTeamStatus(request.resource.data.status)
+          && (
+            request.resource.data.mainTotal == null
+            || (request.resource.data.mainTotal is number
+              && request.resource.data.mainTotal >= 0
+              && request.resource.data.mainTotal <= 100)
+          );
+      }
+
+      function validMainScoreWrite(levelId, docId) {
+        return request.resource.data.teamId == docId
+          && request.resource.data.levelId == levelId
+          && request.resource.data.completedShots == 3
+          && request.resource.data.deviceCount is int
+          && request.resource.data.deviceCount >= 0
+          && request.resource.data.deviceCount <= 5
+          && request.resource.data.shots is list
+          && request.resource.data.shots.size() == 3
+          && request.resource.data.breakdown is map
+          && request.resource.data.total is number
+          && request.resource.data.total >= 0
+          && request.resource.data.total <= 100
+          && request.resource.data.updatedBy is string
+          && request.resource.data.updatedBy.size() <= 16;
+      }
+
+      function validAuditCreate(levelId) {
+        return request.resource.data.levelId == levelId
+          && request.resource.data.action is string
+          && request.resource.data.action.size() <= 40
+          && request.resource.data.judge is string
+          && request.resource.data.judge.size() <= 64;
+      }
+
       allow read: if signedIn();
       allow write: if isAdmin();
 
@@ -34,12 +86,14 @@ service cloud.firestore {
 
       match /levels/{levelId}/teams/{docId} {
         allow read: if signedIn();
-        allow write: if isAdmin() || isJudgeForLevel(levelId);
+        allow create, update: if canScoreLevel(levelId) && validTeamWrite();
+        allow delete: if isAdmin();
       }
 
       match /levels/{levelId}/mainScores/{docId} {
         allow read: if signedIn();
-        allow write: if isAdmin() || isJudgeForLevel(levelId);
+        allow create, update: if canScoreLevel(levelId) && validMainScoreWrite(levelId, docId);
+        allow delete: if isAdmin();
       }
 
       match /levels/{levelId}/pkSessions/{docId} {
@@ -54,7 +108,7 @@ service cloud.firestore {
 
       match /levels/{levelId}/auditLogs/{docId} {
         allow read: if signedIn();
-        allow create: if signedIn();
+        allow create: if signedIn() && validAuditCreate(levelId);
         allow update, delete: if isAdmin();
       }
     }

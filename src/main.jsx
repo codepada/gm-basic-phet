@@ -235,7 +235,7 @@ function App() {
       },
     );
     return unsubscribe;
-  }, [authReady, session]);
+  }, [authReady, session?.role]);
 
   useEffect(() => {
     if (!isFirebaseConfigured || !session || !authReady) return undefined;
@@ -259,7 +259,7 @@ function App() {
       },
     );
     return unsubscribe;
-  }, [authReady, levelId, session]);
+  }, [authReady, levelId, session?.role]);
 
   useEffect(() => {
     if (!isFirebaseConfigured || !session || !authReady) return undefined;
@@ -282,7 +282,7 @@ function App() {
       },
     );
     return unsubscribe;
-  }, [authReady, levelId, session]);
+  }, [authReady, levelId, session?.role]);
 
   const saveMainScore = async (team, draft, reason = "") => {
     const before = scores[team.id] || null;
