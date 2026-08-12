@@ -235,6 +235,35 @@ function buildPkProgress(pkNeeds, pkRounds, pkAttempts, awardCutoff, policy) {
   };
 }
 
+function buildAutoPkRoundPatch(settings, levelId, teams, scores, pkAttempts, awardCutoff, policy) {
+  const completed = teams.filter((team) => scores[team.id]);
+  if (!teams.length || completed.length !== teams.length) return null;
+
+  const pkNeeds = pkNeededForMain(completed, awardCutoff, policy);
+  if (!pkNeeds.length) return null;
+
+  const currentLevelRounds = settings.pkRoundsByLevel?.[levelId] || {};
+  const progress = buildPkProgress(pkNeeds, currentLevelRounds, pkAttempts, awardCutoff, policy);
+  const groupsToOpen = progress.unresolved.filter((group) => (
+    group.teamIds.every((teamId) => !(currentLevelRounds[teamId] || []).map(Number).includes(group.round))
+  ));
+  if (!groupsToOpen.length) return null;
+
+  const nextLevelRounds = { ...currentLevelRounds };
+  groupsToOpen.forEach((group) => {
+    group.teamIds.forEach((teamId) => {
+      nextLevelRounds[teamId] = [...new Set([...(nextLevelRounds[teamId] || []), group.round])].sort((a, b) => a - b);
+    });
+  });
+
+  return {
+    pkRoundsByLevel: {
+      ...(settings.pkRoundsByLevel || {}),
+      [levelId]: nextLevelRounds,
+    },
+  };
+}
+
 function loginEmailForId(id) {
   return `${id.toLowerCase()}@${AUTH_EMAIL_DOMAIN}`;
 }
@@ -489,13 +518,30 @@ function App() {
   const savePkScore = async (team, draft) => {
     const pkRound = currentPkRoundForTeam(settings, levelId, team.id);
     const score = pkScore(draft);
+    const nextAttempt = {
+      ...draft,
+      id: `${team.id}-pk${pkRound}-${role}`,
+      levelId,
+      teamId: team.id,
+      pkRound,
+      score,
+      updatedAt: new Date().toISOString(),
+      updatedBy: role,
+    };
+    const nextPkAttempts = [nextAttempt, ...pkAttempts.filter((attempt) => !(attempt.teamId === team.id && Number(attempt.pkRound) === pkRound && attempt.updatedBy === role))];
+    const autoPkPatch = buildAutoPkRoundPatch(settings, levelId, enrichedTeams, scores, nextPkAttempts, awardCutoff, pkPolicy);
     if (isFirebaseConfigured) {
       setSyncStatus("กำลังบันทึกคะแนน PK...");
       setSyncError("");
       try {
         assertFirebaseSessionMatchesRole(role, levelId);
         await submitAssignedPkScore(levelId, team.id, pkRound, draft, { uid: role, role });
-        setSyncStatus("บันทึกคะแนน PK สำเร็จ");
+        if (autoPkPatch) {
+          await saveSettings(autoPkPatch, { uid: role || "system", role });
+          setSyncStatus("บันทึก PK และเปิดรอบถัดไปแล้ว");
+        } else {
+          setSyncStatus("บันทึกคะแนน PK สำเร็จ");
+        }
       } catch (error) {
         setSyncStatus("บันทึกคะแนน PK ไม่สำเร็จ");
         setSyncError(firebaseSaveErrorMessage(error));
@@ -515,19 +561,10 @@ function App() {
       ...current,
     ]);
     setSelectedPkTeam(null);
-    setPkAttempts((current) => {
-      const nextAttempt = {
-        ...draft,
-        id: `${team.id}-pk${pkRound}-${role}`,
-        levelId,
-        teamId: team.id,
-        pkRound,
-        score,
-        updatedAt: new Date().toISOString(),
-        updatedBy: role,
-      };
-      return [nextAttempt, ...current.filter((attempt) => !(attempt.teamId === team.id && Number(attempt.pkRound) === pkRound && attempt.updatedBy === role))];
-    });
+    setPkAttempts(nextPkAttempts);
+    if (autoPkPatch) {
+      setSettings((current) => ({ ...current, ...autoPkPatch }));
+    }
     setSaveResult({ savedTeam: { ...team, name: fullTeamName(team) }, nextTeam: null, total: score, mode: "pk", pkRound });
   };
 
