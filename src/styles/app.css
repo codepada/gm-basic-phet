@@ -1020,16 +1020,19 @@ textarea {
 }
 
 .shot-title > strong {
-  min-width: 68px;
+  min-width: max-content;
   min-height: 42px;
   display: grid;
   place-items: center;
   border-radius: 8px;
   background: #e6efeb;
   color: var(--green-dark);
-  font-size: 1.2rem;
+  padding: 8px 12px;
+  font-size: clamp(1.05rem, 2.8vw, 1.28rem);
+  line-height: 1;
   text-align: center;
   overflow-wrap: anywhere;
+  white-space: nowrap;
 }
 
 .score-section {
@@ -1059,6 +1062,7 @@ textarea {
 
 .phase-score .score-section {
   grid-template-rows: auto auto minmax(0, 1fr);
+  align-content: stretch;
   padding-top: 0;
 }
 
@@ -1078,20 +1082,34 @@ textarea {
   min-height: 100%;
   align-content: stretch;
   align-items: stretch;
+  gap: 10px;
 }
 
-.phase-score .ball-card {
+.phase-score .result-card {
   height: 100%;
   align-content: stretch;
+  padding: 10px;
+  gap: 8px;
 }
 
-.phase-score .ball-card .choice-grid {
-  height: 100%;
+.phase-score .result-card > strong {
+  font-size: clamp(1.08rem, 3vw, 1.35rem);
 }
 
-.phase-score .ball-card .choice {
+.phase-score .result-card .choice-grid {
   height: 100%;
-  min-height: 78px;
+  gap: 8px;
+}
+
+.phase-score .result-card .choice {
+  height: 100%;
+  min-height: 118px;
+  padding: 10px;
+  font-size: clamp(1.18rem, 4vw, 1.65rem);
+}
+
+.phase-score .result-card .choice small {
+  font-size: clamp(0.86rem, 2.6vw, 1.08rem);
 }
 
 .score-section h3 {
@@ -1343,7 +1361,7 @@ textarea {
 }
 
 .phase-score .point3-result-grid .ball-card {
-  min-height: 220px;
+  min-height: 320px;
 }
 
 .point3-result-grid .choice-grid {
@@ -1354,6 +1372,7 @@ textarea {
   min-height: 0;
   height: 100%;
   padding: 10px;
+  font-size: clamp(1.1rem, 4vw, 1.5rem);
 }
 
 .smooth-score {
@@ -1782,8 +1801,8 @@ textarea {
   }
 
   .shot-title > strong {
-    min-width: 64px;
     min-height: 40px;
+    padding: 7px 10px;
     font-size: 1.08rem;
   }
 
@@ -1873,6 +1892,24 @@ textarea {
 
   .phase-score .ball-card .choice {
     min-height: 64px;
+  }
+
+  .phase-score .result-card {
+    min-height: 230px;
+    padding: 9px;
+  }
+
+  .phase-score .result-card .choice {
+    min-height: 88px;
+    font-size: clamp(1.05rem, 5vw, 1.42rem);
+  }
+
+  .phase-score .result-card .choice small {
+    font-size: clamp(0.78rem, 3.5vw, 0.98rem);
+  }
+
+  .phase-score .point3-result-grid .result-card {
+    min-height: 260px;
   }
 
   .phase-operation .score-section {
@@ -2096,6 +2133,24 @@ textarea {
 
   .phase-score .ball-card .choice {
     min-height: 48px;
+  }
+
+  .phase-score .result-card {
+    min-height: 180px;
+    padding: 7px;
+  }
+
+  .phase-score .result-card .choice {
+    min-height: 66px;
+    font-size: clamp(0.92rem, 4.2vw, 1.16rem);
+  }
+
+  .phase-score .result-card .choice small {
+    font-size: clamp(0.68rem, 3vw, 0.84rem);
+  }
+
+  .phase-score .point3-result-grid .result-card {
+    min-height: 205px;
   }
 
   .summary-step .ranking > div {

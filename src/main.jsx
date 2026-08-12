@@ -1880,7 +1880,7 @@ function BallResultChoice({ ballIndex, shot, onChange }) {
   };
 
   return (
-    <div className={touched ? "ball-card disabled" : "ball-card"}>
+    <div className={touched ? "ball-card result-card disabled" : "ball-card result-card"}>
       <strong>ลูกที่ {ballIndex + 1}</strong>
       <ChoiceGrid columns={shot.target === TARGETS.point3 ? 1 : 2}>
         {options.map((option) => (
