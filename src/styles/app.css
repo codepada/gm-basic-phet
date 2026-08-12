@@ -939,11 +939,13 @@ textarea {
 
 .scoring-step {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) minmax(18px, auto);
+  grid-template-rows: auto auto;
+  align-content: start;
   gap: 10px;
   padding: 12px;
   min-height: 0;
-  overflow: hidden;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .device-step,
@@ -984,9 +986,9 @@ textarea {
 
 .score-section {
   display: grid;
-  align-content: stretch;
+  align-content: start;
   gap: 8px;
-  min-height: 100%;
+  min-height: 0;
 }
 
 .phase-position .score-section,
@@ -1013,13 +1015,13 @@ textarea {
 }
 
 .phase-operation .score-section {
-  grid-template-rows: auto repeat(3, minmax(0, 1fr));
-  align-content: stretch;
+  grid-template-rows: none;
+  align-content: start;
 }
 
 .phase-operation .choice {
-  height: 100%;
-  min-height: 66px;
+  height: auto;
+  min-height: 64px;
 }
 
 .phase-score .result-grid {
@@ -1185,7 +1187,6 @@ textarea {
 }
 
 .smooth-score {
-  height: 100%;
   min-height: 40px;
   display: grid;
   place-items: center;
@@ -1206,25 +1207,28 @@ textarea {
 
 .smooth-grid {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-rows: auto;
   gap: 6px;
 }
 
 .counter {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 46px 50px 46px;
+  grid-template-columns: minmax(90px, 1fr) 48px 54px 48px;
   align-items: center;
   gap: 6px;
 }
 
+.counter span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .counter button {
-  height: 100%;
   min-height: 42px;
   padding: 0;
 }
 
 .counter strong {
-  height: 100%;
   min-height: 42px;
   display: grid;
   place-items: center;
@@ -1547,6 +1551,7 @@ textarea {
   .scoring-step {
     gap: 6px;
     padding: 8px;
+    overflow: auto;
   }
 
   .score-section {
@@ -1617,7 +1622,7 @@ textarea {
   }
 
   .counter {
-    grid-template-columns: minmax(0, 1fr) 44px 52px 44px;
+    grid-template-columns: minmax(82px, 1fr) 44px 52px 44px;
     gap: 6px;
     font-size: 0.95rem;
   }
@@ -1643,7 +1648,7 @@ textarea {
   }
 
   .phase-operation .choice {
-    min-height: 62px;
+    min-height: 58px;
   }
 
   .phase-score .ball-card {
@@ -1656,12 +1661,12 @@ textarea {
   }
 
   .phase-operation .score-section {
-    grid-template-rows: auto repeat(3, minmax(0, 1fr));
+    grid-template-rows: none;
   }
 
   .phase-operation .sub-section,
   .phase-operation .smooth-grid {
-    min-height: 0;
+    min-height: auto;
   }
 
   .shot-summary-grid {
@@ -1796,6 +1801,11 @@ textarea {
   .counter button,
   .counter strong {
     min-height: 36px;
+  }
+
+  .counter {
+    grid-template-columns: minmax(70px, 1fr) 38px 44px 38px;
+    gap: 5px;
   }
 
   .smooth-score {
