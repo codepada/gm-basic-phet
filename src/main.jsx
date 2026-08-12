@@ -1755,7 +1755,7 @@ function ShotStepCard({ index, phase, shot, onChange }) {
   };
 
   return (
-    <section className={`panel shot-panel scoring-step phase-${phase}`}>
+    <section className={`panel shot-panel scoring-step phase-${phase}${phase === "operation" && index === 0 ? " phase-operation-smooth" : ""}`}>
       <div className="shot-title">
         <div>
           <p className="eyebrow">รอบแรก</p>
