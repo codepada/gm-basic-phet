@@ -443,11 +443,19 @@ h2 {
 
 .judge-pk-list article {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
   gap: 3px;
   border: 1px solid #f0cf90;
   border-radius: 8px;
   background: #fffdf7;
   padding: 10px;
+}
+
+.judge-pk-list article > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
 }
 
 .judge-pk-list strong,
@@ -459,6 +467,10 @@ h2 {
 .judge-pk-list span {
   color: var(--muted);
   font-weight: 800;
+}
+
+.judge-pk-list button {
+  min-width: 120px;
 }
 
 .pk-assignment-panel,
@@ -1715,6 +1727,15 @@ textarea {
   .print-actions,
   .print-summary {
     grid-template-columns: 1fr;
+  }
+
+  .judge-pk-list article {
+    grid-template-columns: 1fr;
+  }
+
+  .judge-pk-list button {
+    width: 100%;
+    min-height: 50px;
   }
 
   .results-table {

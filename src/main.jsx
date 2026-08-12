@@ -745,8 +745,11 @@ function JudgePage({ teams, allTeams, scores, assignment, pkOrders, onScore }) {
           <div className="judge-pk-list">
             {assignedPkTeams.map((team) => (
               <article key={team.id}>
-                <strong>{team.order}. {team.teamName || team.name}</strong>
-                <span>{team.school || "ไม่ระบุโรงเรียน"}</span>
+                <div>
+                  <strong>{team.order}. {team.teamName || team.name}</strong>
+                  <span>{team.school || "ไม่ระบุโรงเรียน"}</span>
+                </div>
+                <button onClick={() => onScore(team)}>ไปให้คะแนน</button>
               </article>
             ))}
           </div>
