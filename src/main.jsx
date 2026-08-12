@@ -1006,6 +1006,16 @@ function JudgePage({ teams, allTeams, scores, settings, levelId, assignment, pkO
   const isEnabled = assignment?.enabled !== false;
   const pkOrderSet = new Set((pkOrders || []).map(Number));
   const assignedPkTeams = (allTeams || teams).filter((team) => pkOrderSet.has(team.order));
+  const levelTeams = allTeams || teams;
+  const levelCompleted = levelTeams.filter((team) => scores[team.id]);
+  const pkConfig = settings.pkConfigByLevel?.[levelId] || {};
+  const judgeAwardCutoff = Number(pkConfig.awardCutoff) || 6;
+  const judgePkPolicy = pkConfig.pkPolicy || PK_POLICY.podiumCutoff;
+  const judgePkNeeds = levelCompleted.length === levelTeams.length ? pkNeededForMain(levelCompleted, judgeAwardCutoff, judgePkPolicy) : [];
+  const judgePkRounds = settings.pkRoundsByLevel?.[levelId] || {};
+  const judgePkProgress = buildPkProgress(judgePkNeeds, judgePkRounds, pkAttempts, judgeAwardCutoff, judgePkPolicy);
+  const isCompetitionFinal = levelTeams.length > 0 && levelCompleted.length === levelTeams.length && judgePkProgress.nextTeamIds.length === 0;
+  const judgeRanking = sortTeamsForResults(levelTeams, pkAttempts);
   return (
     <section className="stack">
       <div className="summary-row">
@@ -1039,6 +1049,27 @@ function JudgePage({ teams, allTeams, scores, settings, levelId, assignment, pkO
               </article>
               );
             })}
+          </div>
+        </section>
+      ) : null}
+      {isCompetitionFinal ? (
+        <section className="panel judge-final-panel">
+          <div>
+            <p className="eyebrow">Final Result</p>
+            <h2>สรุปผลการแข่งขันจบแล้ว</h2>
+          </div>
+          <div className="judge-final-list">
+            {judgeRanking.map((team, index) => (
+              <article key={team.id}>
+                <strong>อันดับ {index + 1}</strong>
+                <div>
+                  <span>{team.order}. {team.teamName || team.name}</span>
+                  <small>{team.school || "ไม่ระบุโรงเรียน"}</small>
+                </div>
+                <b>{team.mainTotal ?? "-"} คะแนน</b>
+                <PkScoreBadges rounds={judgePkRounds[team.id] || []} scores={pkScoresForTeam(pkAttempts, team.id)} />
+              </article>
+            ))}
           </div>
         </section>
       ) : null}

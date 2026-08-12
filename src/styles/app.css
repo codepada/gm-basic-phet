@@ -487,6 +487,60 @@ h2 {
   min-width: 120px;
 }
 
+.judge-final-panel {
+  gap: 10px;
+  border-color: #b9dec8;
+  background: #edf8f1;
+}
+
+.judge-final-list {
+  display: grid;
+  gap: 8px;
+}
+
+.judge-final-list article {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #b9dec8;
+  border-radius: 8px;
+  background: white;
+  padding: 10px;
+  min-width: 0;
+}
+
+.judge-final-list article > strong {
+  color: var(--green-dark);
+}
+
+.judge-final-list article > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.judge-final-list span,
+.judge-final-list small,
+.judge-final-list b {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.judge-final-list span {
+  font-weight: 900;
+}
+
+.judge-final-list small {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.judge-final-list b {
+  color: var(--green-dark);
+  white-space: nowrap;
+}
+
 .pk-assignment-panel,
 .pk-assignment-list {
   display: grid;
