@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { CheckCircle2, CircleDashed, ClipboardList, Eye } from "lucide-react";
@@ -1737,16 +1737,60 @@ function PkAssignmentPanel({ levelId, pkTeams, pkNeeds, allTeamsComplete, assign
 }
 
 function PrintResultsPage({ levelId, teams, scores, pkRounds, pkAttempts }) {
+  const printRef = useRef(null);
   const completed = teams.filter((team) => scores[team.id]);
   let scoredRank = 0;
+  const handlePrint = () => {
+    const content = printRef.current?.outerHTML;
+    if (!content) {
+      window.print();
+      return;
+    }
+
+    const printWindow = window.open("", "_blank", "width=1000,height=800");
+    if (!printWindow) {
+      window.print();
+      return;
+    }
+
+    printWindow.document.write(`
+      <!doctype html>
+      <html lang="th">
+        <head>
+          <meta charset="UTF-8" />
+          <title>ผลการแข่งขัน ${LEVEL_LABELS[levelId]}</title>
+          <style>
+            body { margin: 24px; color: #000; font-family: Arial, sans-serif; }
+            .print-actions button { display: none; }
+            .eyebrow { margin: 0 0 4px; font-size: 12px; font-weight: 700; text-transform: uppercase; }
+            h2 { margin: 0 0 16px; }
+            .print-summary { display: flex; gap: 8px; margin: 12px 0; }
+            .metric { border: 1px solid #999; padding: 8px; min-width: 110px; }
+            .metric span { display: block; font-size: 12px; }
+            .metric strong { font-size: 18px; }
+            .print-note { font-size: 12px; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { border: 1px solid #444; padding: 8px; text-align: left; vertical-align: top; }
+            th { background: #e6efeb; }
+            .pk-badges { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+            .pk-badges b { border: 1px solid #444; border-radius: 4px; padding: 1px 5px; font-size: 11px; }
+          </style>
+        </head>
+        <body>${content}</body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => printWindow.print(), 200);
+  };
   return (
-    <section className="panel print-results">
+    <section ref={printRef} className="panel print-results">
       <div className="print-actions">
         <div>
           <p className="eyebrow">Print</p>
           <h2>ผลการแข่งขัน {LEVEL_LABELS[levelId]}</h2>
         </div>
-        <button onClick={() => window.print()}>พิมพ์ผล</button>
+        <button type="button" onClick={handlePrint}>พิมพ์ผล</button>
       </div>
       <div className="print-summary">
         <Metric label="ทีมทั้งหมด" value={teams.length} />
