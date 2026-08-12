@@ -1372,7 +1372,8 @@ textarea {
   padding: 0;
 }
 
-.counter .counter-minus {
+.counter .counter-minus,
+.counter .counter-plus {
   background: var(--red);
 }
 

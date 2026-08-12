@@ -1909,7 +1909,7 @@ function Counter({ label, value, onChange }) {
       <span>{label}</span>
       <button className="counter-minus" onClick={() => onChange(Math.max(0, (value ?? 0) - 1))}>-</button>
       <strong>{selected ? value : "-"}</strong>
-      <button onClick={() => onChange((value ?? 0) + 1)}>+</button>
+      <button className="counter-plus" onClick={() => onChange((value ?? 0) + 1)}>+</button>
     </div>
   );
 }
