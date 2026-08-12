@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from "firebase/auth";
+import { CheckCircle2, CircleDashed, ClipboardList, Eye } from "lucide-react";
 import {
   ADMIN_ID,
   AUTH_EMAIL_DOMAIN,
@@ -703,7 +704,12 @@ function JudgePage({ teams, scores, assignment, pkOrders, onScore }) {
                 <span>{score ? `ตรวจแล้ว • ยิงครบ 3 ครั้ง • ${score.total} คะแนน` : "รอให้คะแนน"}</span>
               </div>
               <div className="team-actions">
-                {score ? <button className="ghost" onClick={() => setViewingScore({ team, score })}>ดูผล</button> : null}
+                {score ? (
+                  <button className="ghost detail-button" onClick={() => setViewingScore({ team, score })}>
+                    <Eye size={16} aria-hidden="true" />
+                    ดูผล
+                  </button>
+                ) : null}
                 <button className={score ? "edit-score-button" : ""} onClick={() => onScore(team)}>
                   {score ? "แก้คะแนน" : "เริ่มให้คะแนน"}
                 </button>
@@ -840,30 +846,14 @@ function AdminPage({ levelId, teams, scores, auditLogs, settings, isCloudReady, 
 
       {adminTab === "dashboard" ? (
         <>
-          <section className="panel">
-            <h2>{LEVEL_LABELS[levelId]} Main Summary</h2>
-            {completed.length === 0 ? (
-              <p className="muted">ยังไม่มีคะแนนที่บันทึกในระดับนี้</p>
-            ) : completed.length !== teams.length ? (
-              <p className="muted">มีคะแนนแล้ว {completed.length}/{teams.length} ทีม</p>
-            ) : (
-              <p className="ok">ครบแล้ว ครูกดเริ่ม PK ได้</p>
-            )}
-            <div className="ranking">
-              {mainRanking.map((team, index) => (
-                <div key={team.id}>
-                  <span>
-                    {index + 1}. {team.teamName || team.name}{team.school ? ` • ${team.school}` : ""}
-                    <PkBadges labels={pkRoundLabels(pkRounds, team.id)} />
-                  </span>
-                  <div className="ranking-actions">
-                    {scores[team.id] ? <button className="ghost mini-button" onClick={() => setViewingScore({ team, score: scores[team.id] })}>ดูผล</button> : null}
-                    <strong>{team.mainTotal ?? "-"} คะแนน</strong>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
+          <DashboardStatusPanel
+            levelId={levelId}
+            teams={teams}
+            scores={scores}
+            completedCount={completed.length}
+            pkRounds={pkRounds}
+            onViewScore={(team, score) => setViewingScore({ team, score })}
+          />
 
           {!isCloudReady ? (
             <section className="panel cloud-warning">
@@ -902,6 +892,51 @@ function AdminPage({ levelId, teams, scores, auditLogs, settings, isCloudReady, 
   );
 }
 
+function DashboardStatusPanel({ levelId, teams, scores, completedCount, pkRounds, onViewScore }) {
+  return (
+    <section className="panel dashboard-status-panel">
+      <div className="section-title">
+        <ClipboardList size={22} aria-hidden="true" />
+        <div>
+          <h2>สถานะการให้คะแนน {LEVEL_LABELS[levelId]}</h2>
+          {completedCount === 0 ? (
+            <p className="muted">ยังไม่มีคะแนนที่บันทึกในระดับนี้</p>
+          ) : completedCount !== teams.length ? (
+            <p className="muted">มีคะแนนแล้ว {completedCount}/{teams.length} ทีม เรียงตามลำดับทีมเพื่อเช็คความคืบหน้า</p>
+          ) : (
+            <p className="ok">ครบทุกทีมแล้ว ตรวจรายละเอียดได้จากปุ่มดูผล</p>
+          )}
+        </div>
+      </div>
+
+      <div className="dashboard-team-list">
+        {teams.map((team) => {
+          const score = scores[team.id];
+          return (
+            <article key={team.id} className={score ? "dashboard-team-row complete" : "dashboard-team-row"}>
+              <div className="team-order">{team.order}</div>
+              <div className="team-main">
+                <strong>{team.teamName || team.name}</strong>
+                <span>{team.school || "ไม่ระบุโรงเรียน"}</span>
+                <span>{score ? `บันทึกแล้วโดย ${score.updatedBy || "-"} • ${score.total} คะแนน` : "ยังไม่มีคะแนน"}</span>
+                <PkBadges labels={pkRoundLabels(pkRounds, team.id)} />
+              </div>
+              <div className={score ? "status-chip complete" : "status-chip"}>
+                {score ? <CheckCircle2 size={17} aria-hidden="true" /> : <CircleDashed size={17} aria-hidden="true" />}
+                <span>{score ? "บันทึกแล้ว" : "รอคะแนน"}</span>
+              </div>
+              <button disabled={!score} className="ghost detail-button" onClick={() => onViewScore(team, score)}>
+                <Eye size={16} aria-hidden="true" />
+                ดูผล
+              </button>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 function TeamScoreCheckPanel({ teams, scores, onViewScore }) {
   return (
     <section className="panel team-score-check">
@@ -920,7 +955,8 @@ function TeamScoreCheckPanel({ teams, scores, onViewScore }) {
                 <span>{team.school || "ไม่ระบุโรงเรียน"}</span>
                 <span>{score ? `บันทึกแล้ว • ${score.total} คะแนน • ${score.updatedBy || "-"}` : "ยังไม่มีคะแนนใน Firebase"}</span>
               </div>
-              <button disabled={!score} className="ghost" onClick={() => onViewScore(team, score)}>
+              <button disabled={!score} className="ghost detail-button" onClick={() => onViewScore(team, score)}>
+                <Eye size={16} aria-hidden="true" />
                 ดูผล
               </button>
             </article>

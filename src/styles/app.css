@@ -41,6 +41,17 @@ button {
   font-weight: 800;
 }
 
+button svg {
+  flex: 0 0 auto;
+}
+
+button.detail-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
 button:disabled {
   opacity: 0.5;
 }
@@ -245,6 +256,7 @@ h2 {
   display: grid;
   gap: 4px;
   padding: 12px;
+  min-width: 0;
 }
 
 .metric span,
@@ -254,12 +266,32 @@ h2 {
 
 .metric strong {
   font-size: 1.5rem;
+  line-height: 1.05;
+  overflow-wrap: anywhere;
 }
 
 .panel {
   display: grid;
   gap: 12px;
   padding: 14px;
+  min-width: 0;
+}
+
+.panel h2 {
+  line-height: 1.16;
+  overflow-wrap: anywhere;
+}
+
+.section-title {
+  display: flex;
+  gap: 10px;
+  align-items: start;
+}
+
+.section-title > svg {
+  flex: 0 0 auto;
+  color: var(--green-dark);
+  margin-top: 2px;
 }
 
 .panel-heading {
@@ -626,9 +658,8 @@ h2 {
 
 .team-main strong,
 .team-main span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .team-main span {
@@ -665,7 +696,8 @@ textarea {
 }
 
 .ranking,
-.audit-list {
+.audit-list,
+.dashboard-team-list {
   display: grid;
   gap: 6px;
 }
@@ -688,6 +720,45 @@ textarea {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.dashboard-status-panel {
+  gap: 14px;
+}
+
+.dashboard-team-row {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  padding: 10px;
+}
+
+.dashboard-team-row.complete {
+  background: #f4fbf7;
+  border-color: #cbe6d5;
+}
+
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 34px;
+  border-radius: 8px;
+  background: #eef2f0;
+  color: var(--muted);
+  padding: 0 9px;
+  font-size: 0.82rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.status-chip.complete {
+  background: #e3f4ea;
+  color: var(--green-dark);
 }
 
 .mini-button {
@@ -1062,7 +1133,7 @@ textarea {
 }
 
 .summary-step .metric,
-.summary-step .ranking div {
+.summary-step .ranking > div {
   align-content: center;
 }
 
@@ -1395,6 +1466,25 @@ textarea {
     min-width: 82px;
   }
 
+  .section-title {
+    gap: 8px;
+  }
+
+  .dashboard-team-row {
+    grid-template-columns: 30px minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .dashboard-team-row .status-chip {
+    grid-column: 2;
+    width: fit-content;
+  }
+
+  .dashboard-team-row .detail-button {
+    grid-column: 2;
+    width: 100%;
+  }
+
   .ranking > div {
     grid-template-columns: 1fr;
   }
@@ -1586,7 +1676,7 @@ textarea {
     min-height: 78px;
   }
 
-  .summary-step .ranking div {
+  .summary-step .ranking > div {
     min-height: 58px;
   }
 
@@ -1733,7 +1823,7 @@ textarea {
     min-height: 48px;
   }
 
-  .summary-step .ranking div {
+  .summary-step .ranking > div {
     min-height: 44px;
   }
 
