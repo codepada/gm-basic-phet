@@ -1483,10 +1483,17 @@ function JudgeAssignmentPanel({ levelId, teams, assignments, onSave }) {
   const judgeIds = JUDGE_IDS_BY_LEVEL[levelId] || [];
   const [draft, setDraft] = useState(() => ({ ...defaultSettings().judgeAssignments, ...assignments }));
   const [status, setStatus] = useState("");
+  const maxTeamOrder = teams.length || 999;
 
   useEffect(() => {
     setDraft({ ...defaultSettings().judgeAssignments, ...assignments });
   }, [assignments, levelId]);
+
+  const numericTeamOrder = (value) => {
+    const digits = value.replace(/\D/g, "");
+    if (!digits) return "";
+    return Math.min(Math.max(1, Number(digits)), maxTeamOrder);
+  };
 
   const updateJudge = (judgeId, patch) => {
     setDraft((current) => ({
@@ -1525,11 +1532,11 @@ function JudgeAssignmentPanel({ levelId, teams, assignments, onSave }) {
               </label>
               <label>
                 จากทีม
-                <input disabled={!enabled} inputMode="numeric" type="number" min="1" max={teams.length || 999} value={assignment.from || ""} onChange={(event) => updateJudge(judgeId, { from: Number(event.target.value) })} />
+                <input disabled={!enabled} inputMode="numeric" type="number" min="1" max={maxTeamOrder} step="1" pattern="[0-9]*" value={assignment.from || ""} onChange={(event) => updateJudge(judgeId, { from: numericTeamOrder(event.target.value) })} />
               </label>
               <label>
                 ถึงทีม
-                <input disabled={!enabled} inputMode="numeric" type="number" min="1" max={teams.length || 999} value={assignment.to || ""} onChange={(event) => updateJudge(judgeId, { to: Number(event.target.value) })} />
+                <input disabled={!enabled} inputMode="numeric" type="number" min="1" max={maxTeamOrder} step="1" pattern="[0-9]*" value={assignment.to || ""} onChange={(event) => updateJudge(judgeId, { to: numericTeamOrder(event.target.value) })} />
               </label>
             </div>
           );
