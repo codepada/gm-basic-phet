@@ -132,6 +132,14 @@ function prunePkAssignmentsForTeamOrders(levelId, assignments = {}, teamOrders =
   return nextAssignments;
 }
 
+function clearPkAssignmentsForLevel(levelId, assignments = {}) {
+  const nextAssignments = { ...assignments };
+  (JUDGE_IDS_BY_LEVEL[levelId] || []).forEach((judgeId) => {
+    nextAssignments[judgeId] = [];
+  });
+  return nextAssignments;
+}
+
 function pkOrdersForJudge(settings, judgeId) {
   const assigned = settings.pkAssignments?.[judgeId];
   if (Array.isArray(assigned)) return assigned.map(Number).filter(Boolean);
@@ -793,12 +801,14 @@ function App() {
       ...(settings.pkRoundsByLevel || {}),
       [levelId]: {},
     };
+    const clearedPkAssignments = clearPkAssignmentsForLevel(levelId, settings.pkAssignments || {});
     setSettings((current) => ({
       ...current,
       pkRoundsByLevel: {
         ...(current.pkRoundsByLevel || {}),
         [levelId]: {},
       },
+      pkAssignments: clearPkAssignmentsForLevel(levelId, current.pkAssignments || {}),
     }));
     setAuditLogs((current) => [
       {
@@ -817,7 +827,7 @@ function App() {
       setSyncError("");
       try {
         await resetLevelMainScores(levelId, { uid: ADMIN_ID, role: "admin" });
-        await saveSettings({ pkRoundsByLevel: clearedPkRoundsByLevel }, { uid: ADMIN_ID });
+        await saveSettings({ pkRoundsByLevel: clearedPkRoundsByLevel, pkAssignments: clearedPkAssignments }, { uid: ADMIN_ID });
         setSyncStatus("รีเซ็ตคะแนน Firebase สำเร็จ");
       } catch (error) {
         setSyncStatus("รีเซ็ตในเครื่องแล้ว แต่รีเซ็ต Firebase ไม่สำเร็จ");
@@ -1095,10 +1105,10 @@ function JudgePage({ teams, allTeams, scores, settings, levelId, assignment, pkO
       {assignment && !pkStarted && !isCompetitionFinal ? (
         <section className={isEnabled ? "panel assignment-note" : "panel assignment-note disabled"}>
           <strong>{isEnabled ? `ช่วงทีมที่รับผิดชอบ: ${assignment.from || 1}-${assignment.to || 999}` : "ID นี้ยังไม่ได้เปิดให้ลงคะแนน"}</strong>
-          {pkOrders?.length ? <span>PK ที่ได้รับมอบหมาย: ทีมลำดับ {pkOrders.join(", ")}</span> : null}
+          {pkStarted && pkOrders?.length ? <span>PK ที่ได้รับมอบหมาย: ทีมลำดับ {pkOrders.join(", ")}</span> : null}
         </section>
       ) : null}
-      {pendingAssignedPkTeams.length && !isCompetitionFinal ? (
+      {pkStarted && pendingAssignedPkTeams.length && !isCompetitionFinal ? (
         <section className="panel judge-pk-panel">
           <div>
             <p className="eyebrow">PK</p>
