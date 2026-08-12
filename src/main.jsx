@@ -1256,7 +1256,7 @@ function AdminPage({ levelId, teams, scores, pkAttempts, auditLogs, settings, is
         </>
       ) : null}
 
-      {adminTab === "print" ? <PrintResultsPage levelId={levelId} teams={mainRanking} scores={scores} pkRounds={pkRounds} pkAttempts={pkAttempts} /> : null}
+      {adminTab === "print" ? <PrintResultsPage levelId={levelId} teams={mainRanking} pkRounds={pkRounds} pkAttempts={pkAttempts} /> : null}
 
       {adminTab === "dashboard" ? (
         <>
@@ -1736,9 +1736,8 @@ function PkAssignmentPanel({ levelId, pkTeams, pkNeeds, allTeamsComplete, assign
   );
 }
 
-function PrintResultsPage({ levelId, teams, scores, pkRounds, pkAttempts }) {
+function PrintResultsPage({ levelId, teams, pkRounds, pkAttempts }) {
   const printRef = useRef(null);
-  const completed = teams.filter((team) => scores[team.id]);
   let scoredRank = 0;
   const handlePrint = () => {
     const content = printRef.current?.outerHTML;
@@ -1761,17 +1760,22 @@ function PrintResultsPage({ levelId, teams, scores, pkRounds, pkAttempts }) {
           <title>ผลการแข่งขัน ${LEVEL_LABELS[levelId]}</title>
           <style>
             body { margin: 24px; color: #000; font-family: Arial, sans-serif; }
+            .print-actions { text-align: center; }
             .print-actions button { display: none; }
             .eyebrow { margin: 0 0 4px; font-size: 12px; font-weight: 700; text-transform: uppercase; }
             h2 { margin: 0 0 16px; }
-            .print-summary { display: flex; gap: 8px; margin: 12px 0; }
-            .metric { border: 1px solid #999; padding: 8px; min-width: 110px; }
-            .metric span { display: block; font-size: 12px; }
-            .metric strong { font-size: 18px; }
             .print-note { font-size: 12px; }
+            .results-table col.rank-col { width: 9%; }
+            .results-table col.order-col { width: 10%; }
+            .results-table col.school-col { width: 30%; }
+            .results-table col.team-col { width: 31%; }
+            .results-table col.pk-col { width: 12%; }
+            .results-table col.score-col { width: 8%; }
             table { width: 100%; border-collapse: collapse; }
-            th, td { border: 1px solid #444; padding: 8px; text-align: left; vertical-align: top; }
-            th { background: #e6efeb; }
+            th, td { border: 1px solid #444; padding: 8px; vertical-align: middle; }
+            th { background: #e6efeb; text-align: center; }
+            td:nth-child(1), td:nth-child(2), td:nth-child(5), td:nth-child(6) { text-align: center; white-space: nowrap; }
+            td:nth-child(3), td:nth-child(4) { overflow-wrap: normal; word-break: keep-all; hyphens: none; line-height: 1.35; }
             .pk-badges { display: inline-flex; flex-wrap: wrap; gap: 4px; }
             .pk-badges b { border: 1px solid #444; border-radius: 4px; padding: 1px 5px; font-size: 11px; }
           </style>
@@ -1792,13 +1796,16 @@ function PrintResultsPage({ levelId, teams, scores, pkRounds, pkAttempts }) {
         </div>
         <button type="button" onClick={handlePrint}>พิมพ์ผล</button>
       </div>
-      <div className="print-summary">
-        <Metric label="ทีมทั้งหมด" value={teams.length} />
-        <Metric label="มีคะแนน" value={completed.length} />
-        <Metric label="รอคะแนน" value={teams.length - completed.length} />
-      </div>
       <p className="print-note">ตารางนี้เรียงคะแนนสูงสุดไว้ด้านบน ทีมที่ยังไม่มีคะแนนจะแสดงท้ายตารางและยังไม่ถูกจัดอันดับ</p>
       <table className="results-table">
+        <colgroup>
+          <col className="rank-col" />
+          <col className="order-col" />
+          <col className="school-col" />
+          <col className="team-col" />
+          <col className="pk-col" />
+          <col className="score-col" />
+        </colgroup>
         <thead>
           <tr>
             <th>อันดับ</th>

@@ -742,17 +742,59 @@ h2 {
   width: 100%;
   border-collapse: collapse;
   background: white;
+  table-layout: fixed;
+}
+
+.results-table col.rank-col {
+  width: 9%;
+}
+
+.results-table col.order-col {
+  width: 10%;
+}
+
+.results-table col.school-col {
+  width: 30%;
+}
+
+.results-table col.team-col {
+  width: 31%;
+}
+
+.results-table col.pk-col {
+  width: 12%;
+}
+
+.results-table col.score-col {
+  width: 8%;
 }
 
 .results-table th,
 .results-table td {
   border: 1px solid var(--line);
   padding: 8px;
-  text-align: left;
+  vertical-align: middle;
 }
 
 .results-table th {
   background: #e6efeb;
+  text-align: center;
+}
+
+.results-table td:nth-child(1),
+.results-table td:nth-child(2),
+.results-table td:nth-child(5),
+.results-table td:nth-child(6) {
+  text-align: center;
+  white-space: nowrap;
+}
+
+.results-table td:nth-child(3),
+.results-table td:nth-child(4) {
+  overflow-wrap: normal;
+  word-break: keep-all;
+  hyphens: none;
+  line-height: 1.35;
 }
 
 .unscored-row {
