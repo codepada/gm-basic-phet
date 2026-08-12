@@ -1022,6 +1022,10 @@ function JudgePage({ teams, allTeams, scores, settings, levelId, assignment, pkO
   const judgePkProgress = buildPkProgress(judgePkNeeds, judgePkRounds, pkAttempts, judgeAwardCutoff, judgePkPolicy);
   const isCompetitionFinal = levelTeams.length > 0 && levelCompleted.length === levelTeams.length && judgePkProgress.nextTeamIds.length === 0;
   const judgeRanking = sortTeamsForResults(levelTeams, pkAttempts);
+  const pendingAssignedPkTeams = assignedPkTeams.filter((team) => {
+    const pkRound = currentPkRoundForTeam(settings, levelId, team.id);
+    return !pkAttemptForRound(pkAttempts, team.id, pkRound);
+  });
   return (
     <section className="stack">
       <div className="summary-row">
@@ -1035,23 +1039,22 @@ function JudgePage({ teams, allTeams, scores, settings, levelId, assignment, pkO
           {pkOrders?.length ? <span>PK ที่ได้รับมอบหมาย: ทีมลำดับ {pkOrders.join(", ")}</span> : null}
         </section>
       ) : null}
-      {assignedPkTeams.length && !isCompetitionFinal ? (
+      {pendingAssignedPkTeams.length && !isCompetitionFinal ? (
         <section className="panel judge-pk-panel">
           <div>
             <p className="eyebrow">PK</p>
             <h2>ทีม PK ที่ได้รับมอบหมาย</h2>
           </div>
           <div className="judge-pk-list">
-            {assignedPkTeams.map((team) => {
+            {pendingAssignedPkTeams.map((team) => {
               const pkRound = currentPkRoundForTeam(settings, levelId, team.id);
-              const attempt = pkAttemptForRound(pkAttempts, team.id, pkRound);
               return (
-              <article key={team.id} className={attempt ? "pk-complete" : ""}>
+              <article key={team.id}>
                 <div>
                   <strong>{team.order}. {team.teamName || team.name} • PK{pkRound}</strong>
-                  <span>{attempt ? `บันทึกแล้ว ${attempt.score} คะแนน` : team.school || "ไม่ระบุโรงเรียน"}</span>
+                  <span>{team.school || "ไม่ระบุโรงเรียน"}</span>
                 </div>
-                <button className={attempt ? "edit-score-button" : ""} onClick={() => onPkScore(team)}>{attempt ? "แก้ PK" : "เริ่มให้คะแนน"}</button>
+                <button onClick={() => onPkScore(team)}>เริ่มให้คะแนน</button>
               </article>
               );
             })}
