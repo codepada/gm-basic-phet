@@ -430,6 +430,37 @@ h2 {
   font-weight: 800;
 }
 
+.judge-pk-panel {
+  gap: 10px;
+  border-color: #f0cf90;
+  background: #fff8e8;
+}
+
+.judge-pk-list {
+  display: grid;
+  gap: 8px;
+}
+
+.judge-pk-list article {
+  display: grid;
+  gap: 3px;
+  border: 1px solid #f0cf90;
+  border-radius: 8px;
+  background: #fffdf7;
+  padding: 10px;
+}
+
+.judge-pk-list strong,
+.judge-pk-list span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.judge-pk-list span {
+  color: var(--muted);
+  font-weight: 800;
+}
+
 .pk-assignment-panel,
 .pk-assignment-list {
   display: grid;

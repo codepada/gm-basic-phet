@@ -88,6 +88,40 @@ function teamWithinAssignment(team, assignment) {
   return team.order >= from && team.order <= to;
 }
 
+function clampAssignmentForTeamCount(assignment, teamCount = 0) {
+  if (!assignment) return assignment;
+  const maxOrder = Math.max(1, teamCount);
+  const from = Math.min(Math.max(1, Number(assignment.from) || 1), maxOrder);
+  const to = Math.min(Math.max(from, Number(assignment.to) || maxOrder), maxOrder);
+  return { ...assignment, from, to };
+}
+
+function clampJudgeAssignmentsForTeamCount(levelId, assignments = {}, teamCount = 0) {
+  const maxOrder = Math.max(1, teamCount);
+  const nextAssignments = { ...assignments };
+  JUDGE_ACCOUNTS
+    .filter((account) => account.levelId === levelId)
+    .forEach((account) => {
+      const current = assignments[account.id] || {};
+      const from = Math.min(Math.max(1, Number(current.from) || 1), maxOrder);
+      const to = Math.min(Math.max(from, Number(current.to) || maxOrder), maxOrder);
+      nextAssignments[account.id] = { enabled: current.enabled !== false, judgeName: current.judgeName || "", from, to, pkTeamOrder: current.pkTeamOrder || "" };
+    });
+  return nextAssignments;
+}
+
+function prunePkAssignmentsForTeamOrders(levelId, assignments = {}, teamOrders = new Set()) {
+  const nextAssignments = { ...assignments };
+  JUDGE_ACCOUNTS
+    .filter((account) => account.levelId === levelId)
+    .forEach((account) => {
+      const current = assignments[account.id];
+      const orders = Array.isArray(current) ? current : current ? [Number(current)] : [];
+      nextAssignments[account.id] = [...new Set(orders.map(Number).filter((order) => teamOrders.has(order)))].sort((a, b) => a - b);
+    });
+  return nextAssignments;
+}
+
 function pkOrdersForJudge(settings, judgeId) {
   const assigned = settings.pkAssignments?.[judgeId];
   if (Array.isArray(assigned)) return assigned.map(Number).filter(Boolean);
@@ -246,11 +280,10 @@ function App() {
       (remoteTeams) => {
         if (!remoteTeams.length) return;
         setTeamsByLevel((current) => {
-          const baseTeams = current[levelId]?.length ? current[levelId] : initialTeams[levelId];
-          const remoteById = Object.fromEntries(remoteTeams.map((team) => [team.id, team]));
-          const merged = baseTeams.map((team) => ({ ...team, ...remoteById[team.id] }));
-          const extraRemoteTeams = remoteTeams.filter((team) => !baseTeams.some((baseTeam) => baseTeam.id === team.id));
-          return { ...current, [levelId]: [...merged, ...extraRemoteTeams].sort((a, b) => (a.order ?? 999) - (b.order ?? 999)) };
+          const nextTeams = remoteTeams
+            .map((team) => ({ ...team, status: team.status || "pending", mainTotal: team.mainTotal ?? null }))
+            .sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+          return { ...current, [levelId]: nextTeams };
         });
       },
       (error) => {
@@ -384,6 +417,13 @@ function App() {
       };
     });
     const nextIds = new Set(nextTeams.map((team) => team.id));
+    const nextOrders = new Set(nextTeams.map((team) => team.order));
+    const nextJudgeAssignments = clampJudgeAssignmentsForTeamCount(levelId, settings.judgeAssignments || {}, nextTeams.length);
+    const nextPkAssignments = prunePkAssignmentsForTeamOrders(levelId, settings.pkAssignments || {}, nextOrders);
+    const nextSettingsPatch = {
+      judgeAssignments: nextJudgeAssignments,
+      pkAssignments: nextPkAssignments,
+    };
 
     setTeamsByLevel((current) => ({ ...current, [levelId]: nextTeams }));
     setScores((current) => {
@@ -393,6 +433,7 @@ function App() {
       });
       return next;
     });
+    setSettings((current) => ({ ...current, ...nextSettingsPatch }));
     setSetupStatus("บันทึกตั้งค่าทีมในหน้านี้แล้ว");
 
     if (isFirebaseConfigured) {
@@ -400,6 +441,7 @@ function App() {
       setSyncError("");
       try {
         await saveTeamSetup(levelId, nextTeams, { uid: role || "admin", role: "admin" });
+        await saveSettings(nextSettingsPatch, { uid: role || "admin" });
         setSyncStatus("sync รายชื่อทีมสำเร็จ");
         setSetupStatus("บันทึกและ sync รายชื่อทีมสำเร็จ");
       } catch (error) {
@@ -514,7 +556,7 @@ function App() {
     return <ScoreWizard key={selectedTeam.id} levelId={levelId} team={selectedTeam} existing={scores[selectedTeam.id]} onCancel={() => setSelectedTeam(null)} onSave={saveMainScore} />;
   }
 
-  const currentJudgeAssignment = role === ADMIN_ID ? null : settings.judgeAssignments?.[role];
+  const currentJudgeAssignment = role === ADMIN_ID ? null : clampAssignmentForTeamCount(settings.judgeAssignments?.[role], teams.length);
   const judgeName = currentJudgeAssignment?.judgeName?.trim();
 
   return (
@@ -551,7 +593,7 @@ function App() {
           }}
         />
       ) : (
-        <JudgePage teams={visibleTeams} scores={scores} assignment={currentJudgeAssignment} pkOrders={pkOrdersForJudge(settings, role)} onScore={setSelectedTeam} />
+        <JudgePage teams={visibleTeams} allTeams={enrichedTeams} scores={scores} assignment={currentJudgeAssignment} pkOrders={pkOrdersForJudge(settings, role)} onScore={setSelectedTeam} />
       )}
     </main>
   );
@@ -676,9 +718,11 @@ function LevelTabs({ levelId, setLevelId }) {
   );
 }
 
-function JudgePage({ teams, scores, assignment, pkOrders, onScore }) {
+function JudgePage({ teams, allTeams, scores, assignment, pkOrders, onScore }) {
   const [viewingScore, setViewingScore] = useState(null);
   const isEnabled = assignment?.enabled !== false;
+  const pkOrderSet = new Set((pkOrders || []).map(Number));
+  const assignedPkTeams = (allTeams || teams).filter((team) => pkOrderSet.has(team.order));
   return (
     <section className="stack">
       <div className="summary-row">
@@ -690,6 +734,22 @@ function JudgePage({ teams, scores, assignment, pkOrders, onScore }) {
         <section className={isEnabled ? "panel assignment-note" : "panel assignment-note disabled"}>
           <strong>{isEnabled ? `ช่วงทีมที่รับผิดชอบ: ${assignment.from || 1}-${assignment.to || 999}` : "ID นี้ยังไม่ได้เปิดให้ลงคะแนน"}</strong>
           {pkOrders?.length ? <span>PK ที่ได้รับมอบหมาย: ทีมลำดับ {pkOrders.join(", ")}</span> : null}
+        </section>
+      ) : null}
+      {assignedPkTeams.length ? (
+        <section className="panel judge-pk-panel">
+          <div>
+            <p className="eyebrow">PK</p>
+            <h2>ทีม PK ที่ได้รับมอบหมาย</h2>
+          </div>
+          <div className="judge-pk-list">
+            {assignedPkTeams.map((team) => (
+              <article key={team.id}>
+                <strong>{team.order}. {team.teamName || team.name}</strong>
+                <span>{team.school || "ไม่ระบุโรงเรียน"}</span>
+              </article>
+            ))}
+          </div>
         </section>
       ) : null}
       <div className="team-list">
