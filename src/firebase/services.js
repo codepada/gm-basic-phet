@@ -296,14 +296,22 @@ export async function saveSettings(settings, user) {
 }
 
 export async function resetLevelMainScores(levelId, user, reason = "admin reset main scores") {
-  const [scoreSnapshot, teamSnapshot] = await Promise.all([
+  const [scoreSnapshot, teamSnapshot, pkAttemptSnapshot, pkSessionSnapshot] = await Promise.all([
     getDocs(mainScoresCol(levelId)),
     getDocs(teamsCol(levelId)),
+    getDocs(pkAttemptsCol(levelId)),
+    getDocs(pkSessionsCol(levelId)),
   ]);
   const batch = writeBatch(db);
 
   scoreSnapshot.docs.forEach((docSnap) => {
     batch.delete(mainScoreRef(levelId, docSnap.id));
+  });
+  pkAttemptSnapshot.docs.forEach((docSnap) => {
+    batch.delete(docSnap.ref);
+  });
+  pkSessionSnapshot.docs.forEach((docSnap) => {
+    batch.delete(docSnap.ref);
   });
   teamSnapshot.docs.forEach((docSnap) => {
     batch.set(teamRef(levelId, docSnap.id), {
@@ -318,9 +326,9 @@ export async function resetLevelMainScores(levelId, user, reason = "admin reset 
     levelId,
     judge: user?.uid || "admin",
     judgeRole: "admin",
-    action: "mainScores.reset",
-    before: { scoreCount: scoreSnapshot.size },
-    after: { scoreCount: 0 },
+    action: "levelResults.reset",
+    before: { scoreCount: scoreSnapshot.size, pkAttemptCount: pkAttemptSnapshot.size, pkSessionCount: pkSessionSnapshot.size },
+    after: { scoreCount: 0, pkAttemptCount: 0, pkSessionCount: 0 },
     reason,
     createdAt: serverTimestamp(),
   });

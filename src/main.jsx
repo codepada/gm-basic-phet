@@ -773,6 +773,7 @@ function App() {
       ...current,
       [levelId]: (current[levelId] || []).map((team) => ({ ...team, status: "pending", mainTotal: null, lock: null })),
     }));
+    setPkAttempts([]);
     const clearedPkRoundsByLevel = {
       ...(settings.pkRoundsByLevel || {}),
       [levelId]: {},
@@ -791,7 +792,7 @@ function App() {
         judge: ADMIN_ID,
         levelId,
         team: levelLabel,
-        action: "mainScores.reset",
+        action: "levelResults.reset",
       },
       ...current,
     ]);
