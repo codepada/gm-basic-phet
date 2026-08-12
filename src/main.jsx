@@ -75,9 +75,19 @@ const blankShot = (withSmoothness = false) => ({
   results: [null, null],
 });
 
+function stripTeamPrefix(name) {
+  const rawName = String(name || "").trim();
+  return rawName.replace(/^ทีม[\s:：-]+/u, "").trim() || rawName;
+}
+
+function displayTeamName(team) {
+  return stripTeamPrefix(team.teamName || team.name);
+}
+
 function fullTeamName(team) {
-  if (team.school && team.teamName) return `${team.school} - ${team.teamName}`;
-  return team.name;
+  const name = displayTeamName(team);
+  if (team.school && name) return `${team.school} - ${name}`;
+  return name || team.name;
 }
 
 function teamWithinAssignment(team, assignment) {
@@ -563,7 +573,7 @@ function App() {
       ...draft,
       teamName: fullTeamName(team),
       school: team.school || "",
-      displayTeamName: team.teamName || team.name,
+      displayTeamName: displayTeamName(team),
       teamOrder: team.order,
       teamId: team.id,
       levelId,
@@ -1063,7 +1073,7 @@ function JudgePage({ teams, allTeams, scores, settings, levelId, assignment, pkO
               return (
               <article key={team.id}>
                 <div>
-                  <strong>{team.order}. {team.teamName || team.name} • PK{pkRound}</strong>
+                  <strong>{team.order}. {displayTeamName(team)} • PK{pkRound}</strong>
                   <span>{team.school || "ไม่ระบุโรงเรียน"}</span>
                 </div>
                 <button onClick={() => onPkScore(team)}>เริ่มให้คะแนน</button>
@@ -1084,7 +1094,7 @@ function JudgePage({ teams, allTeams, scores, settings, levelId, assignment, pkO
               <article key={team.id}>
                 <strong>ที่ {index + 1}{latestPkLabel(pkAttempts, team.id) ? ` ${latestPkLabel(pkAttempts, team.id)}` : ""}</strong>
                 <div>
-                  <span>{team.order}. {team.teamName || team.name}</span>
+                  <span>{team.order}. {displayTeamName(team)}</span>
                   <small>{team.school || "ไม่ระบุโรงเรียน"}</small>
                 </div>
                 <b>{team.mainTotal ?? "-"} คะแนน</b>
@@ -1101,7 +1111,7 @@ function JudgePage({ teams, allTeams, scores, settings, levelId, assignment, pkO
               <article key={team.id} className="team-row">
                 <div className="team-order">{team.order}</div>
                 <div className="team-main">
-                  <strong>{team.teamName || team.name}</strong>
+                  <strong>{displayTeamName(team)}</strong>
                   <span>{team.school || "ไม่ระบุโรงเรียน"}</span>
                   <span>{score ? `ตรวจแล้ว • ยิงครบ 3 ครั้ง • ${score.total} คะแนน` : "รอให้คะแนน"}</span>
                 </div>
@@ -1332,7 +1342,7 @@ function DashboardStatusPanel({ levelId, teams, scores, completedCount, pkRounds
             <article key={team.id} className={score ? "dashboard-team-row complete" : "dashboard-team-row"}>
               <div className="team-order">{team.order}</div>
               <div className="team-main">
-                <strong>{team.teamName || team.name}</strong>
+                <strong>{displayTeamName(team)}</strong>
                 <span>{team.school || "ไม่ระบุโรงเรียน"}</span>
                 <span>{score ? `บันทึกแล้วโดย ${score.updatedBy || "-"} • ${score.total} คะแนน` : "ยังไม่มีคะแนน"}</span>
                 <PkBadges labels={pkRoundLabels(pkRounds, team.id)} />
@@ -1367,7 +1377,7 @@ function TeamScoreCheckPanel({ teams, scores, onViewScore }) {
             <article key={team.id} className={score ? "team-row scored" : "team-row"}>
               <div className="team-order">{team.order}</div>
               <div className="team-main">
-                <strong>{team.teamName || team.name}</strong>
+                <strong>{displayTeamName(team)}</strong>
                 <span>{team.school || "ไม่ระบุโรงเรียน"}</span>
                 <span>{score ? `บันทึกแล้ว • ${score.total} คะแนน • ${score.updatedBy || "-"}` : "ยังไม่มีคะแนนใน Firebase"}</span>
               </div>
@@ -1392,7 +1402,7 @@ function ScoreDetailModal({ team, score, onClose }) {
         <header className="score-modal-head">
           <div>
             <p className="eyebrow">Score Detail</p>
-            <h2>{team.teamName || team.name}</h2>
+            <h2>{displayTeamName(team)}</h2>
             <span>{team.school || score.school || "ไม่ระบุโรงเรียน"}</span>
           </div>
           <button className="ghost" onClick={onClose}>ปิด</button>
@@ -1624,7 +1634,7 @@ function PkStatusPanel({ allTeamsComplete, pkNeeds, pkTeams, pkRounds, pkAttempt
             <div key={team.id}>
               <label className="pk-round-team">
                 <input type="checkbox" checked={selected.has(team.id)} onChange={() => toggleTeam(team.id)} />
-                <span>{team.order}. {team.teamName || team.name}</span>
+                <span>{team.order}. {displayTeamName(team)}</span>
               </label>
               <PkScoreBadges rounds={pkRounds[team.id] || []} scores={pkScoresForTeam(pkAttempts, team.id)} />
             </div>
@@ -1719,7 +1729,7 @@ function PkAssignmentPanel({ levelId, pkTeams, pkNeeds, allTeamsComplete, assign
                 {pkTeams.map((team) => (
                   <label key={`${judgeId}-${team.id}`} className={selected.has(team.order) ? "pk-team-chip active" : "pk-team-chip"}>
                     <input disabled={!enabled} type="checkbox" checked={selected.has(team.order)} onChange={() => toggleTeam(judgeId, team.order)} />
-                    <span>{team.order}. {team.teamName || team.name}</span>
+                    <span>{team.order}. {displayTeamName(team)}</span>
                   </label>
                 ))}
                 {!pkTeams.length ? <p className="muted">ยังไม่มีทีมให้เลือก</p> : null}
@@ -1825,7 +1835,7 @@ function PrintResultsPage({ levelId, teams, pkRounds, pkAttempts }) {
                 <td>{hasScore ? scoredRank : "-"}</td>
                 <td>{team.order}</td>
                 <td>{team.school || "-"}</td>
-                <td>{team.teamName || team.name}</td>
+                <td>{displayTeamName(team)}</td>
                 <td><PkScoreBadges rounds={pkRounds[team.id] || []} scores={pkScoresForTeam(pkAttempts, team.id)} /></td>
                 <td>{team.mainTotal ?? "-"}</td>
               </tr>
@@ -1979,7 +1989,7 @@ function ScoreWizard({ levelId, team, existing, onCancel, onSave }) {
   };
 
   const handleSave = async () => {
-    if (!window.confirm(`ยืนยันบันทึกคะแนน ${team.teamName || team.name} หรือไม่?`)) return;
+    if (!window.confirm(`ยืนยันบันทึกคะแนน ${displayTeamName(team)} หรือไม่?`)) return;
     setIsSaving(true);
     setSaveError("");
     try {
@@ -1994,7 +2004,7 @@ function ScoreWizard({ levelId, team, existing, onCancel, onSave }) {
     <main className={`app-shell wizard-shell level-theme-${levelId}`}>
       <header className="topbar">
         <div>
-          <p className="eyebrow team-heading">{team.teamName || team.name}</p>
+          <p className="eyebrow team-heading">{displayTeamName(team)}</p>
           {team.school ? <p className="school-heading">{team.school}</p> : null}
           <h1>ให้คะแนนรอบแรก</h1>
         </div>
@@ -2076,7 +2086,7 @@ function PkScoreWizard({ levelId, team, pkRound, onCancel, onSave }) {
   const firstIncompleteStep = steps.findIndex((item) => !wizardStepReady(item, null, shots));
 
   const handleSave = async () => {
-    if (!window.confirm(`ยืนยันบันทึกคะแนน PK${pkRound} ${team.teamName || team.name} หรือไม่?`)) return;
+    if (!window.confirm(`ยืนยันบันทึกคะแนน PK${pkRound} ${displayTeamName(team)} หรือไม่?`)) return;
     setIsSaving(true);
     setSaveError("");
     try {
@@ -2091,7 +2101,7 @@ function PkScoreWizard({ levelId, team, pkRound, onCancel, onSave }) {
     <main className={`app-shell wizard-shell level-theme-${levelId}`}>
       <header className="topbar">
         <div>
-          <p className="eyebrow team-heading">{team.teamName || team.name}</p>
+          <p className="eyebrow team-heading">{displayTeamName(team)}</p>
           {team.school ? <p className="school-heading">{team.school}</p> : null}
           <h1>ให้คะแนน PK{pkRound}</h1>
         </div>
