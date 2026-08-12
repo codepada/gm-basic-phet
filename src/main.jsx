@@ -193,6 +193,12 @@ function pkScoresForTeam(pkAttempts, teamId) {
   });
 }
 
+function latestPkLabel(pkAttempts, teamId) {
+  const scores = pkScoresForTeam(pkAttempts, teamId);
+  const latest = scores[scores.length - 1];
+  return latest ? `PK${latest.round}` : "";
+}
+
 function pkTieNeedsMore(startPlace, endPlace, awardCutoff, policy) {
   if (policy === PK_POLICY.exactRanking) return startPlace <= awardCutoff;
   return startPlace <= 3 || (startPlace <= awardCutoff && endPlace > awardCutoff);
@@ -1061,13 +1067,12 @@ function JudgePage({ teams, allTeams, scores, settings, levelId, assignment, pkO
           <div className="judge-final-list">
             {judgeRanking.map((team, index) => (
               <article key={team.id}>
-                <strong>อันดับ {index + 1}</strong>
+                <strong>ที่ {index + 1}{latestPkLabel(pkAttempts, team.id) ? ` ${latestPkLabel(pkAttempts, team.id)}` : ""}</strong>
                 <div>
                   <span>{team.order}. {team.teamName || team.name}</span>
                   <small>{team.school || "ไม่ระบุโรงเรียน"}</small>
                 </div>
                 <b>{team.mainTotal ?? "-"} คะแนน</b>
-                <PkScoreBadges rounds={judgePkRounds[team.id] || []} scores={pkScoresForTeam(pkAttempts, team.id)} />
               </article>
             ))}
           </div>
