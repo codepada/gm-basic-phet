@@ -1037,11 +1037,11 @@ function ballResultLabel(shot, ballIndex) {
   if (shot?.touches?.[ballIndex]) return "สัมผัสก่อนเป้าหมาย";
   const result = shot?.results?.[ballIndex];
   if (shot?.distancePassed === false) return "ระยะไม่ผ่าน";
-  if (shot?.target === TARGETS.point3) return result === "score" ? "เข้า 10" : "ไม่ได้คะแนน";
+  if (shot?.target === TARGETS.point3) return result === "score" ? "บอลอยู่ในเป้า 10" : "บอลไม่อยู่ในเป้า";
   if (shot?.target === TARGETS.launcher) {
-    if (result === "a") return "A";
-    if (result === "b") return "B";
-    if (result === "c") return "C";
+    if (result === "A") return "A";
+    if (result === "B") return "B";
+    if (result === "C") return "C";
     return "ไม่ได้คะแนน";
   }
   return "-";
@@ -1618,6 +1618,12 @@ function targetLabel(target) {
   return "ยังไม่เลือก";
 }
 
+function maxShotScore(shot, index) {
+  const smoothnessMax = index === 0 ? 20 : 0;
+  const missionMax = shot?.target === TARGETS.launcher ? 10 : shot?.target === TARGETS.point3 ? 20 : 0;
+  return smoothnessMax + 2 + missionMax;
+}
+
 function findFirstIncompleteStep(steps, deviceCount, shots) {
   const index = steps.findIndex((item) => item.type !== "summary" && !wizardStepReady(item, deviceCount, shots));
   return index >= 0 ? { index, step: steps[index] } : null;
@@ -1711,6 +1717,7 @@ function SummaryStep({ existing, reason, setReason, deviceCount, shots, breakdow
 }
 
 function ShotSummaryStep({ index, shot, breakdown }) {
+  const maxScore = maxShotScore(shot, index);
   return (
     <section className="panel scoring-step shot-summary-step">
       <div className="shot-title">
@@ -1718,7 +1725,7 @@ function ShotSummaryStep({ index, shot, breakdown }) {
           <p className="eyebrow">ตรวจสอบก่อนครั้งถัดไป</p>
           <h2>สรุปการยิงครั้งที่ {index + 1}</h2>
         </div>
-        <strong>{breakdown.total} คะแนน</strong>
+        <strong>{breakdown.total}/{maxScore}</strong>
       </div>
 
       <div className="shot-summary-grid">
@@ -1727,7 +1734,7 @@ function ShotSummaryStep({ index, shot, breakdown }) {
         {breakdown.smoothness !== null ? <Metric label="ราบรื่น" value={breakdown.smoothness} /> : null}
         <Metric label="ออโต้" value={breakdown.auto} />
         <Metric label="พื้นที่" value={breakdown.mission} />
-        <Metric label="รวมครั้งนี้" value={breakdown.total} />
+        <Metric label="รวมครั้งนี้" value={`${breakdown.total}/${maxScore}`} />
       </div>
 
       <div className="step-note">
@@ -1812,8 +1819,8 @@ function ShotStepCard({ index, phase, shot, onChange }) {
         {phase === "score" && shot.distancePassed === false ? <p className="danger">ไม่ผ่านระยะ คะแนนรอบนี้ = 0</p> : null}
         {phase === "score" && shot.distancePassed !== false ? (
           <>
-            {shot.target ? <p className="muted">{shot.target === TARGETS.launcher ? "เครื่องยิง: เลือก A/B/C หรือไม่ได้คะแนน" : "จุดที่ 3: เลือกเข้า 10 หรือไม่ได้คะแนน"}</p> : <p className="danger">กรุณาเลือกตำแหน่งลูกบอลก่อน</p>}
-            <div className="ball-card-grid result-grid">
+            {shot.target ? <p className="muted">{shot.target === TARGETS.launcher ? "เครื่องยิง: เลือก A/B/C หรือไม่ได้คะแนน" : "จุดที่ 3: เลือกบอลอยู่ในเป้า 10 หรือไม่ได้คะแนน"}</p> : <p className="danger">กรุณาเลือกตำแหน่งลูกบอลก่อน</p>}
+            <div className={`ball-card-grid result-grid${shot.target === TARGETS.point3 ? " point3-result-grid" : ""}`}>
               {[0, 1].map((ballIndex) => (
                 <BallResultChoice key={ballIndex} ballIndex={ballIndex} shot={shot} onChange={onChange} />
               ))}
@@ -1856,13 +1863,13 @@ function BallResultChoice({ ballIndex, shot, onChange }) {
   const result = shot.results?.[ballIndex] ?? null;
   const options = shot.target === TARGETS.point3
     ? [
-        { value: "", label: "ไม่ได้", points: 0, tone: "result-zero" },
+        { value: "", label: "บอลไม่อยู่ในเป้า", points: 0, tone: "result-zero" },
         { value: "score", label: "บอลอยู่ในเป้า", points: 10, tone: "result-score" },
       ]
     : [
         { value: "", label: "0", points: 0, tone: "result-zero" },
-        { value: "B", label: "B", points: 4, tone: "result-b" },
         { value: "C", label: "C", points: 3, tone: "result-c" },
+        { value: "B", label: "B", points: 4, tone: "result-b" },
         { value: "A", label: "A", points: 5, tone: "result-a" },
       ];
 
@@ -1875,9 +1882,9 @@ function BallResultChoice({ ballIndex, shot, onChange }) {
   return (
     <div className={touched ? "ball-card disabled" : "ball-card"}>
       <strong>ลูกที่ {ballIndex + 1}</strong>
-      <ChoiceGrid columns={2}>
+      <ChoiceGrid columns={shot.target === TARGETS.point3 ? 1 : 2}>
         {options.map((option) => (
-          <button key={option.value} disabled={touched} className={`choice ${option.tone}${result === option.value ? " active" : ""}`} onClick={() => setResult(option.value)}>
+          <button key={option.value} disabled={touched} className={`choice ${option.tone}${shot.target === TARGETS.point3 ? " point3-result-choice" : ""}${result === option.value ? " active" : ""}`} onClick={() => setResult(option.value)}>
             <span>{option.label}</span>
             <small>{option.points} คะแนน</small>
           </button>
@@ -1900,7 +1907,7 @@ function Counter({ label, value, onChange }) {
   return (
     <div className="counter">
       <span>{label}</span>
-      <button onClick={() => onChange(Math.max(0, (value ?? 0) - 1))}>-</button>
+      <button className="counter-minus" onClick={() => onChange(Math.max(0, (value ?? 0) - 1))}>-</button>
       <strong>{selected ? value : "-"}</strong>
       <button onClick={() => onChange((value ?? 0) + 1)}>+</button>
     </div>

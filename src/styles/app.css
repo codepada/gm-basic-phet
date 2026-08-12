@@ -39,6 +39,9 @@ button {
   color: white;
   padding: 0 14px;
   font-weight: 800;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+  text-align: center;
 }
 
 button svg {
@@ -257,6 +260,8 @@ h2 {
   gap: 4px;
   padding: 12px;
   min-width: 0;
+  align-content: center;
+  text-align: center;
 }
 
 .metric span,
@@ -264,8 +269,15 @@ h2 {
   color: var(--muted);
 }
 
+.metric span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.15;
+}
+
 .metric strong {
-  font-size: 1.5rem;
+  min-width: 0;
+  font-size: clamp(1.1rem, 4vw, 1.5rem);
   line-height: 1.05;
   overflow-wrap: anywhere;
 }
@@ -390,6 +402,8 @@ h2 {
   border-radius: 8px;
   background: #e6efeb;
   color: var(--green-dark);
+  text-align: center;
+  overflow-wrap: anywhere;
 }
 
 .assignment-enabled {
@@ -449,12 +463,15 @@ h2 {
   border-radius: 8px;
   background: #edf8f1;
   padding: 10px;
+  min-width: 0;
+  text-align: center;
 }
 
 .pk-need-list span {
   color: var(--green-dark);
   font-size: 0.82rem;
   font-weight: 900;
+  overflow-wrap: anywhere;
 }
 
 .pk-status-list,
@@ -473,6 +490,12 @@ h2 {
   background: #fbfcfc;
   padding: 10px;
   font-weight: 900;
+  min-width: 0;
+}
+
+.pk-result-list div > * {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .pk-round-team {
@@ -525,6 +548,8 @@ h2 {
   border-radius: 8px;
   background: #e6efeb;
   color: var(--green-dark);
+  text-align: center;
+  overflow-wrap: anywhere;
 }
 
 .pk-judge-head span {
@@ -548,6 +573,8 @@ h2 {
   background: #eef4f1;
   padding: 8px;
   font-weight: 900;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .pk-team-chip.active {
@@ -710,6 +737,14 @@ textarea {
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 10px;
+  min-width: 0;
+}
+
+.ranking > div > *,
+.audit-list div > *,
+.pk-card > * {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .ranking > div {
@@ -735,6 +770,11 @@ textarea {
   border-radius: 8px;
   background: #fff;
   padding: 10px;
+  min-width: 0;
+}
+
+.dashboard-team-row > * {
+  min-width: 0;
 }
 
 .dashboard-team-row.complete {
@@ -753,7 +793,10 @@ textarea {
   padding: 0 9px;
   font-size: 0.82rem;
   font-weight: 900;
-  white-space: nowrap;
+  white-space: normal;
+  text-align: center;
+  justify-content: center;
+  overflow-wrap: anywhere;
 }
 
 .status-chip.complete {
@@ -826,6 +869,7 @@ textarea {
 
 .score-total-card strong {
   font-size: 2.1rem;
+  overflow-wrap: anywhere;
 }
 
 .score-breakdown-cards {
@@ -863,6 +907,7 @@ textarea {
 
 .score-detail-grid strong {
   min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .pk-card {
@@ -982,6 +1027,8 @@ textarea {
   background: #e6efeb;
   color: var(--green-dark);
   font-size: 1.2rem;
+  text-align: center;
+  overflow-wrap: anywhere;
 }
 
 .score-section {
@@ -1071,12 +1118,21 @@ textarea {
   color: var(--ink);
   padding: 8px;
   text-align: center;
+  line-height: 1.12;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.choice span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .choice small {
   color: var(--muted);
   font-size: 0.74rem;
   font-weight: 900;
+  line-height: 1.08;
 }
 
 .choice.active {
@@ -1171,7 +1227,7 @@ textarea {
 
 .choice.result-a span,
 .choice.result-score span {
-  font-size: 1.1em;
+  font-size: clamp(0.94rem, 3vw, 1.1em);
 }
 
 .choice.result-zero.active small,
@@ -1223,6 +1279,13 @@ textarea {
   border-radius: 8px;
   padding: 8px;
   background: #fbfcfc;
+  min-width: 0;
+}
+
+.ball-card > strong {
+  min-width: 0;
+  text-align: center;
+  overflow-wrap: anywhere;
 }
 
 .ball-card-grid {
@@ -1247,6 +1310,24 @@ textarea {
 
 .ball-card.disabled {
   background: #f8eeee;
+}
+
+.point3-result-grid {
+  align-content: stretch;
+}
+
+.phase-score .point3-result-grid .ball-card {
+  min-height: 220px;
+}
+
+.point3-result-grid .choice-grid {
+  grid-auto-rows: minmax(0, 1fr);
+}
+
+.phase-score .point3-result-choice {
+  min-height: 0;
+  height: 100%;
+  padding: 10px;
 }
 
 .smooth-score {
@@ -1291,6 +1372,10 @@ textarea {
   padding: 0;
 }
 
+.counter .counter-minus {
+  background: var(--red);
+}
+
 .counter strong {
   min-height: 42px;
   display: grid;
@@ -1298,6 +1383,7 @@ textarea {
   border-radius: 8px;
   background: #eef4f1;
   text-align: center;
+  overflow-wrap: anywhere;
 }
 
 .ball-table {
