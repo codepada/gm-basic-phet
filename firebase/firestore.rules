@@ -19,6 +19,11 @@ service cloud.firestore {
           );
       }
 
+      function isJudge() {
+        return signedIn()
+          && request.auth.token.email.matches('^(el|jh|sh)[0-9][0-9]@gm-basic-phet\\.local$');
+      }
+
       function canScoreLevel(levelId) {
         return isAdmin() || isJudgeForLevel(levelId);
       }
@@ -82,6 +87,13 @@ service cloud.firestore {
       match /settings/{docId} {
         allow read: if signedIn();
         allow write: if isAdmin();
+        allow update: if isJudge()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'pkRoundsByLevel',
+            'pkAssignments',
+            'updatedAt',
+            'updatedBy'
+          ]);
       }
 
       match /levels/{levelId}/teams/{docId} {

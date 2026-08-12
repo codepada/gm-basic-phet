@@ -235,6 +235,42 @@ function buildPkProgress(pkNeeds, pkRounds, pkAttempts, awardCutoff, policy) {
   };
 }
 
+function autoAssignPkOrders(levelId, settings, teams, teamIds) {
+  const teamIdSet = new Set(teamIds);
+  const nextOrders = teams
+    .filter((team) => teamIdSet.has(team.id))
+    .map((team) => Number(team.order))
+    .filter(Boolean)
+    .sort((a, b) => a - b);
+  const judgeIds = JUDGE_IDS_BY_LEVEL[levelId] || [];
+  const enabledJudgeIds = judgeIds.filter((judgeId) => settings.judgeAssignments?.[judgeId]?.enabled !== false);
+  const activeJudgeIds = enabledJudgeIds.length ? enabledJudgeIds : judgeIds;
+  const currentAssignments = settings.pkAssignments || {};
+  const nextAssignments = { ...currentAssignments };
+
+  judgeIds.forEach((judgeId) => {
+    nextAssignments[judgeId] = [];
+  });
+
+  const assignedOrders = new Set();
+  nextOrders.forEach((order) => {
+    const currentJudge = activeJudgeIds.find((judgeId) => (currentAssignments[judgeId] || []).map(Number).includes(order));
+    if (!currentJudge) return;
+    nextAssignments[currentJudge] = [...new Set([...(nextAssignments[currentJudge] || []), order])].sort((a, b) => a - b);
+    assignedOrders.add(order);
+  });
+
+  nextOrders
+    .filter((order) => !assignedOrders.has(order))
+    .forEach((order, index) => {
+      const judgeId = activeJudgeIds[index % Math.max(1, activeJudgeIds.length)];
+      if (!judgeId) return;
+      nextAssignments[judgeId] = [...new Set([...(nextAssignments[judgeId] || []), order])].sort((a, b) => a - b);
+    });
+
+  return nextAssignments;
+}
+
 function buildAutoPkRoundPatch(settings, levelId, teams, scores, pkAttempts, awardCutoff, policy) {
   const completed = teams.filter((team) => scores[team.id]);
   if (!teams.length || completed.length !== teams.length) return null;
@@ -255,8 +291,10 @@ function buildAutoPkRoundPatch(settings, levelId, teams, scores, pkAttempts, awa
       nextLevelRounds[teamId] = [...new Set([...(nextLevelRounds[teamId] || []), group.round])].sort((a, b) => a - b);
     });
   });
+  const nextPkTeamIds = [...new Set(groupsToOpen.flatMap((group) => group.teamIds))];
 
   return {
+    pkAssignments: autoAssignPkOrders(levelId, settings, teams, nextPkTeamIds),
     pkRoundsByLevel: {
       ...(settings.pkRoundsByLevel || {}),
       [levelId]: nextLevelRounds,
@@ -452,6 +490,34 @@ function App() {
     );
     return unsubscribe;
   }, [authReady, levelId, session?.role]);
+
+  useEffect(() => {
+    if (!isFirebaseConfigured || !session || !authReady || !role) return;
+    const levelTeams = (teamsByLevel[levelId] || []).map((team) => ({
+      ...team,
+      mainTotal: scores[team.id]?.breakdown?.total ?? team.mainTotal,
+      status: scores[team.id] ? "main-complete" : team.status,
+    }));
+    const autoPkPatch = buildAutoPkRoundPatch(settings, levelId, levelTeams, scores, pkAttempts, awardCutoff, pkPolicy);
+    if (!autoPkPatch) return;
+
+    let cancelled = false;
+    saveSettings(autoPkPatch, { uid: role || "system", role })
+      .then(() => {
+        if (cancelled) return;
+        setSettings((current) => ({ ...current, ...autoPkPatch }));
+        setSyncStatus("เปิด PK รอบถัดไปอัตโนมัติแล้ว");
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setSyncStatus("เปิด PK รอบถัดไปอัตโนมัติไม่สำเร็จ");
+        setSyncError(firebaseSaveErrorMessage(error));
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authReady, awardCutoff, levelId, pkAttempts, pkPolicy, role, scores, session, settings, teamsByLevel]);
 
   const saveMainScore = async (team, draft, reason = "") => {
     const before = scores[team.id] || null;
