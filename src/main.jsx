@@ -401,8 +401,8 @@ function App() {
   const teams = teamsByLevel[levelId] || [];
   const enrichedTeams = teams.map((team) => ({
     ...team,
-    mainTotal: scores[team.id]?.breakdown?.total ?? team.mainTotal,
-    status: scores[team.id] ? "main-complete" : team.status,
+    mainTotal: scores[team.id]?.breakdown?.total ?? scores[team.id]?.total ?? null,
+    status: scores[team.id] ? "main-complete" : "pending",
   }));
   const visibleTeams = role === ADMIN_ID
     ? enrichedTeams
@@ -542,8 +542,8 @@ function App() {
     if (!isFirebaseConfigured || !session || !authReady || !role) return;
     const levelTeams = (teamsByLevel[levelId] || []).map((team) => ({
       ...team,
-      mainTotal: scores[team.id]?.breakdown?.total ?? team.mainTotal,
-      status: scores[team.id] ? "main-complete" : team.status,
+      mainTotal: scores[team.id]?.breakdown?.total ?? scores[team.id]?.total ?? null,
+      status: scores[team.id] ? "main-complete" : "pending",
     }));
     const autoPkPatch = buildAutoPkRoundPatch(settings, levelId, levelTeams, scores, pkAttempts, awardCutoff, pkPolicy);
     if (!autoPkPatch) return;
@@ -1150,6 +1150,8 @@ function AdminPage({ levelId, teams, scores, pkAttempts, auditLogs, settings, is
   const pkTeams = teams.filter((team) => pkTeamIds.has(team.id)).sort((a, b) => a.order - b.order);
   const selectedPkTeams = pkTeams.filter((team) => selectedPkTeamIds.includes(team.id));
   const pkRounds = settings.pkRoundsByLevel?.[levelId] || {};
+  const pkRoundCount = Object.values(pkRounds).reduce((total, rounds) => total + (Array.isArray(rounds) ? rounds.length : 0), 0);
+  const canResetLevel = completed.length > 0 || pkAttempts.length > 0 || pkRoundCount > 0 || teams.some((team) => team.status === "main-complete" || Number.isFinite(team.mainTotal));
   const pkProgress = useMemo(() => buildPkProgress(pkNeeds, pkRounds, pkAttempts, awardCutoff, pkPolicy), [pkNeeds, pkRounds, pkAttempts, awardCutoff, pkPolicy]);
 
   useEffect(() => {
@@ -1293,10 +1295,10 @@ function AdminPage({ levelId, teams, scores, pkAttempts, auditLogs, settings, is
               <p className="eyebrow">Test Reset</p>
               <h2>รีเซ็ตคะแนน {LEVEL_LABELS[levelId]}</h2>
             </div>
-            <p className="muted">ใช้สำหรับวันทดสอบหรือก่อนเริ่มจริง ล้างเฉพาะคะแนนรอบแรกของระดับนี้ รายชื่อทีมและชื่อกรรมการยังอยู่เหมือนเดิม</p>
+            <p className="muted">ใช้สำหรับวันทดสอบหรือก่อนเริ่มจริง ล้างคะแนนรอบแรกและ PK ของระดับนี้ รายชื่อทีมและชื่อกรรมการยังอยู่เหมือนเดิม</p>
             <div className="setup-actions">
-              <p className={resetStatus.includes("ไม่สำเร็จ") ? "danger" : "muted"}>{resetStatus || `มีคะแนนแล้ว ${completed.length}/${teams.length} ทีม`}</p>
-              <button className="danger-button" disabled={completed.length === 0} onClick={resetLevelScores}>รีเซ็ตคะแนนระดับนี้</button>
+              <p className={resetStatus.includes("ไม่สำเร็จ") ? "danger" : "muted"}>{resetStatus || `มีคะแนนแล้ว ${completed.length}/${teams.length} ทีม • PK ค้าง ${pkAttempts.length + pkRoundCount} รายการ`}</p>
+              <button className="danger-button" disabled={!canResetLevel} onClick={resetLevelScores}>รีเซ็ตคะแนนระดับนี้</button>
             </div>
           </section>
 
@@ -1346,7 +1348,7 @@ function DashboardStatusPanel({ levelId, teams, scores, completedCount, pkRounds
                 <strong>{displayTeamName(team)}</strong>
                 <span>{team.school || "ไม่ระบุโรงเรียน"}</span>
                 <span>{score ? `บันทึกแล้วโดย ${score.updatedBy || "-"} • ${score.total} คะแนน` : "ยังไม่มีคะแนน"}</span>
-                <PkBadges labels={pkRoundLabels(pkRounds, team.id)} />
+                {score ? <PkBadges labels={pkRoundLabels(pkRounds, team.id)} /> : null}
               </div>
               <div className={score ? "status-chip complete" : "status-chip"}>
                 {score ? <CheckCircle2 size={17} aria-hidden="true" /> : <CircleDashed size={17} aria-hidden="true" />}
@@ -1847,7 +1849,7 @@ function PrintResultsPage({ levelId, teams, pkRounds, pkAttempts }) {
                   <td>{team.order}</td>
                   <td>{team.school || "-"}</td>
                   <td>{displayTeamName(team)}</td>
-                  <td><PkScoreBadges rounds={pkRounds[team.id] || []} scores={pkScoresForTeam(pkAttempts, team.id)} /></td>
+                  <td>{hasScore ? <PkScoreBadges rounds={pkRounds[team.id] || []} scores={pkScoresForTeam(pkAttempts, team.id)} /> : null}</td>
                   <td>{team.mainTotal ?? "-"}</td>
                 </tr>
               );
