@@ -129,11 +129,30 @@ function pkOrdersForJudge(settings, judgeId) {
   return legacyOrder ? [Number(legacyOrder)] : [];
 }
 
-function sortTeamsForResults(teams) {
+function pkScoreVector(pkAttempts, teamId) {
+  return pkScoresForTeam(pkAttempts, teamId).map((item) => item.score);
+}
+
+function comparePkVectors(pkAttempts, aTeamId, bTeamId) {
+  const aScores = pkScoreVector(pkAttempts, aTeamId);
+  const bScores = pkScoreVector(pkAttempts, bTeamId);
+  const maxRounds = Math.max(aScores.length, bScores.length);
+  for (let index = 0; index < maxRounds; index += 1) {
+    const aScore = aScores[index];
+    const bScore = bScores[index];
+    if (aScore === undefined && bScore === undefined) continue;
+    if (aScore === undefined) return 1;
+    if (bScore === undefined) return -1;
+    if (aScore !== bScore) return bScore - aScore;
+  }
+  return 0;
+}
+
+function sortTeamsForResults(teams, pkAttempts = []) {
   return [...teams].sort((a, b) => {
     const aScored = Number.isFinite(a.mainTotal);
     const bScored = Number.isFinite(b.mainTotal);
-    if (aScored && bScored) return b.mainTotal - a.mainTotal || a.order - b.order;
+    if (aScored && bScored) return b.mainTotal - a.mainTotal || comparePkVectors(pkAttempts, a.id, b.id) || a.order - b.order;
     if (aScored) return -1;
     if (bScored) return 1;
     return a.order - b.order;
@@ -1061,7 +1080,7 @@ function AdminPage({ levelId, teams, scores, pkAttempts, auditLogs, settings, is
   const [resetStatus, setResetStatus] = useState("");
   const [selectedPkTeamIds, setSelectedPkTeamIds] = useState([]);
   const completed = teams.filter((team) => scores[team.id]);
-  const mainRanking = sortTeamsForResults(teams);
+  const mainRanking = sortTeamsForResults(teams, pkAttempts);
   const pkNeeds = completed.length === teams.length ? pkNeededForMain(completed, awardCutoff, pkPolicy) : [];
   const pkTeamIds = new Set(pkNeeds.flatMap((need) => need.teamIds));
   const pkTeams = teams.filter((team) => pkTeamIds.has(team.id)).sort((a, b) => a.order - b.order);
@@ -1184,7 +1203,7 @@ function AdminPage({ levelId, teams, scores, pkAttempts, auditLogs, settings, is
         </>
       ) : null}
 
-      {adminTab === "print" ? <PrintResultsPage levelId={levelId} teams={mainRanking} scores={scores} pkRounds={pkRounds} /> : null}
+      {adminTab === "print" ? <PrintResultsPage levelId={levelId} teams={mainRanking} scores={scores} pkRounds={pkRounds} pkAttempts={pkAttempts} /> : null}
 
       {adminTab === "dashboard" ? (
         <>
@@ -1194,6 +1213,7 @@ function AdminPage({ levelId, teams, scores, pkAttempts, auditLogs, settings, is
             scores={scores}
             completedCount={completed.length}
             pkRounds={pkRounds}
+            pkAttempts={pkAttempts}
             onViewScore={(team, score) => setViewingScore({ team, score })}
           />
 
@@ -1234,7 +1254,8 @@ function AdminPage({ levelId, teams, scores, pkAttempts, auditLogs, settings, is
   );
 }
 
-function DashboardStatusPanel({ levelId, teams, scores, completedCount, pkRounds, onViewScore }) {
+function DashboardStatusPanel({ levelId, teams, scores, completedCount, pkRounds, pkAttempts, onViewScore }) {
+  const rankedTeams = sortTeamsForResults(teams, pkAttempts);
   return (
     <section className="panel dashboard-status-panel">
       <div className="section-title">
@@ -1252,7 +1273,7 @@ function DashboardStatusPanel({ levelId, teams, scores, completedCount, pkRounds
       </div>
 
       <div className="dashboard-team-list">
-        {teams.map((team) => {
+        {rankedTeams.map((team) => {
           const score = scores[team.id];
           return (
             <article key={team.id} className={score ? "dashboard-team-row complete" : "dashboard-team-row"}>
@@ -1662,7 +1683,7 @@ function PkAssignmentPanel({ levelId, pkTeams, pkNeeds, allTeamsComplete, assign
   );
 }
 
-function PrintResultsPage({ levelId, teams, scores, pkRounds }) {
+function PrintResultsPage({ levelId, teams, scores, pkRounds, pkAttempts }) {
   const completed = teams.filter((team) => scores[team.id]);
   let scoredRank = 0;
   return (
@@ -1701,7 +1722,7 @@ function PrintResultsPage({ levelId, teams, scores, pkRounds }) {
                 <td>{team.order}</td>
                 <td>{team.school || "-"}</td>
                 <td>{team.teamName || team.name}</td>
-                <td><PkBadges labels={pkRoundLabels(pkRounds, team.id)} /></td>
+                <td><PkScoreBadges rounds={pkRounds[team.id] || []} scores={pkScoresForTeam(pkAttempts, team.id)} /></td>
                 <td>{team.mainTotal ?? "-"}</td>
               </tr>
             );
