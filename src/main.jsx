@@ -1772,8 +1772,8 @@ function ShotStepCard({ index, phase, shot, onChange }) {
 
         {phase === "distance" ? (
           <ChoiceGrid columns={2}>
-            <button className={shot.distancePassed === true ? "choice pass active" : "choice pass"} onClick={() => onChange({ distancePassed: true })}>ผ่าน 90 cm</button>
             <button className={shot.distancePassed === false ? "choice fail active" : "choice fail"} onClick={() => onChange({ distancePassed: false })}>ไม่ผ่าน</button>
+            <button className={shot.distancePassed === true ? "choice pass active" : "choice pass"} onClick={() => onChange({ distancePassed: true })}>ผ่าน 90 cm</button>
           </ChoiceGrid>
         ) : null}
 
@@ -1793,8 +1793,8 @@ function ShotStepCard({ index, phase, shot, onChange }) {
             <div className="sub-section compact-section">
               <h4>ยิงอัตโนมัติ</h4>
               <ChoiceGrid columns={2}>
+                <button className={shot.autoLaunch === false ? "choice fail active" : "choice fail"} onClick={() => onChange({ autoLaunch: false })}>ไม่ออโต้</button>
                 <button className={shot.autoLaunch === true ? "choice pass active" : "choice pass"} onClick={() => onChange({ autoLaunch: true })}>ออโต้ +2</button>
-                <button className={shot.autoLaunch === false ? "choice neutral active" : "choice neutral"} onClick={() => onChange({ autoLaunch: false })}>ไม่ออโต้</button>
               </ChoiceGrid>
             </div>
 
@@ -1844,8 +1844,8 @@ function BallTouchChoice({ ballIndex, shot, onChange }) {
     <div className="ball-card">
       <strong>ลูกที่ {ballIndex + 1}</strong>
       <ChoiceGrid columns={2}>
-        <button className={touched === false ? "choice pass active" : "choice pass"} onClick={() => setTouched(false)}>ไม่สัมผัส</button>
         <button className={touched === true ? "choice fail active" : "choice fail"} onClick={() => setTouched(true)}>สัมผัส</button>
+        <button className={touched === false ? "choice pass active" : "choice pass"} onClick={() => setTouched(false)}>ไม่สัมผัส</button>
       </ChoiceGrid>
     </div>
   );
@@ -1856,14 +1856,14 @@ function BallResultChoice({ ballIndex, shot, onChange }) {
   const result = shot.results?.[ballIndex] ?? null;
   const options = shot.target === TARGETS.point3
     ? [
-        { value: "", label: "ไม่ได้", points: 0 },
-        { value: "score", label: "เข้า", points: 10 },
+        { value: "", label: "ไม่ได้", points: 0, tone: "result-zero" },
+        { value: "score", label: "เข้า", points: 10, tone: "result-score" },
       ]
     : [
-        { value: "", label: "ไม่ได้", points: 0 },
-        { value: "A", label: "A", points: 5 },
-        { value: "B", label: "B", points: 4 },
-        { value: "C", label: "C", points: 3 },
+        { value: "", label: "0", points: 0, tone: "result-zero" },
+        { value: "C", label: "C", points: 3, tone: "result-c" },
+        { value: "B", label: "B", points: 4, tone: "result-b" },
+        { value: "A", label: "A", points: 5, tone: "result-a" },
       ];
 
   const setResult = (value) => {
@@ -1877,7 +1877,7 @@ function BallResultChoice({ ballIndex, shot, onChange }) {
       <strong>ลูกที่ {ballIndex + 1}</strong>
       <ChoiceGrid columns={shot.target === TARGETS.point3 ? 2 : 4}>
         {options.map((option) => (
-          <button key={option.value} disabled={touched} className={result === option.value ? "choice active" : "choice"} onClick={() => setResult(option.value)}>
+          <button key={option.value} disabled={touched} className={`choice ${option.tone}${result === option.value ? " active" : ""}`} onClick={() => setResult(option.value)}>
             <span>{option.label}</span>
             <small>{option.points} คะแนน</small>
           </button>

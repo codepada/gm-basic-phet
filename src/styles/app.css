@@ -1119,6 +1119,69 @@ textarea {
   color: white;
 }
 
+.choice.result-zero {
+  background: #f7dfe2;
+  color: var(--red);
+}
+
+.choice.result-zero.active {
+  border-color: #7d1721;
+  background: var(--red);
+  color: white;
+}
+
+.choice.result-c {
+  background: #fff1c7;
+  color: #7a4a00;
+}
+
+.choice.result-c.active {
+  border-color: #7a4a00;
+  background: #c47a08;
+  color: white;
+}
+
+.choice.result-b {
+  background: #dcecff;
+  color: #165591;
+}
+
+.choice.result-b.active {
+  border-color: #0f3f70;
+  background: #1f6fb2;
+  color: white;
+}
+
+.choice.result-a,
+.choice.result-score {
+  background: #dff3e7;
+  color: #145c39;
+}
+
+.choice.result-a.active,
+.choice.result-score.active {
+  border-color: #0f4a2e;
+  background: var(--green);
+  color: white;
+}
+
+.choice.result-a {
+  box-shadow: inset 0 0 0 1px rgba(31, 122, 77, 0.22);
+}
+
+.choice.result-a span,
+.choice.result-score span {
+  font-size: 1.1em;
+}
+
+.choice.result-zero.active small,
+.choice.result-c.active small,
+.choice.result-b.active small,
+.choice.result-a.active small,
+.choice.result-score.active small {
+  color: white;
+}
+
 .summary-cards {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
