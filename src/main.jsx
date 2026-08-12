@@ -958,17 +958,9 @@ function App() {
 
 function LoginPage({ onLogin }) {
   const [id, setId] = useState("admin");
-  const [idGroup, setIdGroup] = useState("admin");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const quickIds = idGroup === "admin" ? [ADMIN_ID] : JUDGE_IDS_BY_LEVEL[idGroup] || [];
-
-  const selectId = (nextId) => {
-    setId(nextId);
-    if (nextId === ADMIN_ID) setIdGroup("admin");
-    else setIdGroup(JUDGE_LEVEL_BY_ID[nextId] || idGroup);
-  };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -1000,44 +992,22 @@ function LoginPage({ onLogin }) {
             autoCapitalize="none"
             autoComplete="username"
             autoCorrect="off"
-            list="login-id-options"
             placeholder="admin / el01 / jh01 / sh01"
             value={id}
-            onChange={(event) => selectId(event.target.value.trim().toLowerCase())}
+            onChange={(event) => setId(event.target.value.trim().toLowerCase())}
           />
-          <datalist id="login-id-options">
-            {LOGIN_IDS.map((loginId) => (
-              <option key={loginId} value={loginId} />
-            ))}
-          </datalist>
         </label>
-
-        <div className="login-id-picker">
-          <div className="login-id-tabs" aria-label="เลือกกลุ่ม ID">
-            <button type="button" className={idGroup === "admin" ? "active" : ""} onClick={() => selectId(ADMIN_ID)}>Admin</button>
-            {LEVELS.map((level) => (
-              <button type="button" key={level.id} className={idGroup === level.id ? "active" : ""} onClick={() => setIdGroup(level.id)}>
-                {level.shortLabel}
-              </button>
-            ))}
-          </div>
-          <div className="login-id-grid">
-            {quickIds.map((loginId) => (
-              <button type="button" key={loginId} className={id === loginId ? "active" : ""} onClick={() => selectId(loginId)}>
-                {loginId}
-              </button>
-            ))}
-          </div>
-        </div>
 
         <label>
           รหัส
           <input
             autoComplete="current-password"
+            className="numeric-password"
             inputMode="numeric"
-            type="password"
+            pattern="[0-9]*"
+            type="tel"
             value={password}
-            onChange={(event) => setPassword(event.target.value)}
+            onChange={(event) => setPassword(event.target.value.replace(/\D/g, ""))}
           />
         </label>
 
