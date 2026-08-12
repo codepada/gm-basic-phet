@@ -593,8 +593,19 @@ h2 {
   white-space: nowrap;
 }
 
+.team-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: end;
+}
+
 .team-row .edit-score-button {
   background: var(--red);
+}
+
+.team-row.scored {
+  background: #f5fbf7;
 }
 
 .team-order {
@@ -659,7 +670,7 @@ textarea {
   gap: 6px;
 }
 
-.ranking div,
+.ranking > div,
 .audit-list div,
 .pk-card {
   display: grid;
@@ -669,8 +680,118 @@ textarea {
   padding: 10px;
 }
 
-.ranking div {
+.ranking > div {
   grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.ranking-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mini-button {
+  min-height: 34px;
+  padding-inline: 10px;
+  font-size: 0.82rem;
+}
+
+.team-score-check {
+  gap: 12px;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  background: rgba(18, 29, 27, 0.52);
+}
+
+.score-modal {
+  width: min(720px, 100%);
+  max-height: calc(100dvh - 24px);
+  overflow: auto;
+  display: grid;
+  gap: 12px;
+  border-radius: 8px;
+  background: white;
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+
+.score-modal-head,
+.score-shot-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: start;
+}
+
+.score-modal-head h2 {
+  margin: 2px 0;
+}
+
+.score-modal-head span,
+.score-saved-meta {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.score-total-card {
+  display: grid;
+  gap: 4px;
+  border-radius: 8px;
+  background: #e6efeb;
+  padding: 12px;
+}
+
+.score-total-card span {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.score-total-card strong {
+  font-size: 2.1rem;
+}
+
+.score-breakdown-cards {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.score-shot-list {
+  display: grid;
+  gap: 8px;
+}
+
+.score-shot-card {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.score-shot-head span {
+  color: var(--green-dark);
+  font-weight: 900;
+}
+
+.score-detail-grid {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px 10px;
+}
+
+.score-detail-grid span {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.score-detail-grid strong {
+  min-width: 0;
 }
 
 .pk-card {
@@ -1262,6 +1383,41 @@ textarea {
     min-height: 44px;
     padding: 0 10px;
     font-size: 0.86rem;
+  }
+
+  .team-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 5px;
+  }
+
+  .team-actions button {
+    min-width: 82px;
+  }
+
+  .ranking > div {
+    grid-template-columns: 1fr;
+  }
+
+  .ranking-actions {
+    justify-content: space-between;
+  }
+
+  .modal-backdrop {
+    padding: 8px;
+    align-items: end;
+  }
+
+  .score-modal {
+    max-height: calc(100dvh - 16px);
+  }
+
+  .score-breakdown-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .score-detail-grid {
+    grid-template-columns: 1fr;
   }
 
   .form-grid,

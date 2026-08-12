@@ -676,6 +676,7 @@ function LevelTabs({ levelId, setLevelId }) {
 }
 
 function JudgePage({ teams, scores, assignment, pkOrders, onScore }) {
+  const [viewingScore, setViewingScore] = useState(null);
   const isEnabled = assignment?.enabled !== false;
   return (
     <section className="stack">
@@ -691,26 +692,34 @@ function JudgePage({ teams, scores, assignment, pkOrders, onScore }) {
         </section>
       ) : null}
       <div className="team-list">
-        {teams.map((team) => (
-          <article key={team.id} className="team-row">
-            <div className="team-order">{team.order}</div>
-            <div className="team-main">
-              <strong>{team.teamName || team.name}</strong>
-              <span>{team.school || "ไม่ระบุโรงเรียน"}</span>
-              <span>{scores[team.id] ? `ตรวจแล้ว • ยิงครบ 3 ครั้ง • ${scores[team.id].total} คะแนน` : "รอให้คะแนน"}</span>
-            </div>
-            <button className={scores[team.id] ? "edit-score-button" : ""} onClick={() => onScore(team)}>
-              {scores[team.id] ? "แก้คะแนน" : "เริ่มให้คะแนน"}
-            </button>
-          </article>
-        ))}
+        {teams.map((team) => {
+          const score = scores[team.id];
+          return (
+            <article key={team.id} className="team-row">
+              <div className="team-order">{team.order}</div>
+              <div className="team-main">
+                <strong>{team.teamName || team.name}</strong>
+                <span>{team.school || "ไม่ระบุโรงเรียน"}</span>
+                <span>{score ? `ตรวจแล้ว • ยิงครบ 3 ครั้ง • ${score.total} คะแนน` : "รอให้คะแนน"}</span>
+              </div>
+              <div className="team-actions">
+                {score ? <button className="ghost" onClick={() => setViewingScore({ team, score })}>ดูผล</button> : null}
+                <button className={score ? "edit-score-button" : ""} onClick={() => onScore(team)}>
+                  {score ? "แก้คะแนน" : "เริ่มให้คะแนน"}
+                </button>
+              </div>
+            </article>
+          );
+        })}
       </div>
+      {viewingScore ? <ScoreDetailModal team={viewingScore.team} score={viewingScore.score} onClose={() => setViewingScore(null)} /> : null}
     </section>
   );
 }
 
 function AdminPage({ levelId, teams, scores, auditLogs, settings, isCloudReady, setupStatus, awardCutoff, setAwardCutoff, pkPolicy, setPkPolicy, onSaveTeamSetup, onResetScores, onSaveSettings }) {
   const [adminTab, setAdminTab] = useState("dashboard");
+  const [viewingScore, setViewingScore] = useState(null);
   const [pkSettingsStatus, setPkSettingsStatus] = useState("");
   const [resetStatus, setResetStatus] = useState("");
   const [selectedPkTeamIds, setSelectedPkTeamIds] = useState([]);
@@ -778,7 +787,12 @@ function AdminPage({ levelId, teams, scores, auditLogs, settings, isCloudReady, 
         <Metric label="ยังไม่จบ" value={teams.length - completed.length} />
       </div>
 
-      {adminTab === "teams" ? <TeamSetupPanel levelId={levelId} teams={teams} status={setupStatus} onSave={onSaveTeamSetup} /> : null}
+      {adminTab === "teams" ? (
+        <>
+          <TeamScoreCheckPanel teams={teams} scores={scores} onViewScore={(team, score) => setViewingScore({ team, score })} />
+          <TeamSetupPanel levelId={levelId} teams={teams} status={setupStatus} onSave={onSaveTeamSetup} />
+        </>
+      ) : null}
 
       {adminTab === "judges" ? (
         <JudgeAssignmentPanel
@@ -842,7 +856,10 @@ function AdminPage({ levelId, teams, scores, auditLogs, settings, isCloudReady, 
                     {index + 1}. {team.teamName || team.name}{team.school ? ` • ${team.school}` : ""}
                     <PkBadges labels={pkRoundLabels(pkRounds, team.id)} />
                   </span>
-                  <strong>{team.mainTotal ?? "-"} คะแนน</strong>
+                  <div className="ranking-actions">
+                    {scores[team.id] ? <button className="ghost mini-button" onClick={() => setViewingScore({ team, score: scores[team.id] })}>ดูผล</button> : null}
+                    <strong>{team.mainTotal ?? "-"} คะแนน</strong>
+                  </div>
                 </div>
               ))}
             </div>
@@ -880,8 +897,124 @@ function AdminPage({ levelId, teams, scores, auditLogs, settings, isCloudReady, 
           </section>
         </>
       ) : null}
+      {viewingScore ? <ScoreDetailModal team={viewingScore.team} score={viewingScore.score} onClose={() => setViewingScore(null)} /> : null}
     </section>
   );
+}
+
+function TeamScoreCheckPanel({ teams, scores, onViewScore }) {
+  return (
+    <section className="panel team-score-check">
+      <div>
+        <p className="eyebrow">Score Check</p>
+        <h2>ตรวจผลการให้คะแนน</h2>
+      </div>
+      <div className="team-list">
+        {teams.map((team) => {
+          const score = scores[team.id];
+          return (
+            <article key={team.id} className={score ? "team-row scored" : "team-row"}>
+              <div className="team-order">{team.order}</div>
+              <div className="team-main">
+                <strong>{team.teamName || team.name}</strong>
+                <span>{team.school || "ไม่ระบุโรงเรียน"}</span>
+                <span>{score ? `บันทึกแล้ว • ${score.total} คะแนน • ${score.updatedBy || "-"}` : "ยังไม่มีคะแนนใน Firebase"}</span>
+              </div>
+              <button disabled={!score} className="ghost" onClick={() => onViewScore(team, score)}>
+                ดูผล
+              </button>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function ScoreDetailModal({ team, score, onClose }) {
+  const breakdown = score?.breakdown || mainScore(score);
+  const shots = score?.shots || [];
+  return (
+    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+      <section className="score-modal" role="dialog" aria-modal="true" aria-label="รายละเอียดคะแนน" onClick={(event) => event.stopPropagation()}>
+        <header className="score-modal-head">
+          <div>
+            <p className="eyebrow">Score Detail</p>
+            <h2>{team.teamName || team.name}</h2>
+            <span>{team.school || score.school || "ไม่ระบุโรงเรียน"}</span>
+          </div>
+          <button className="ghost" onClick={onClose}>ปิด</button>
+        </header>
+
+        <div className="score-total-card">
+          <span>คะแนนรวม</span>
+          <strong>{score.total ?? breakdown.total}</strong>
+        </div>
+
+        <div className="summary-cards score-breakdown-cards">
+          <Metric label="อุปกรณ์" value={score.deviceCount ?? "-"} />
+          <Metric label="ราบรื่น" value={breakdown.smoothness ?? "-"} />
+          <Metric label="ออโต้" value={breakdown.autoTotal ?? "-"} />
+          <Metric label="พื้นที่" value={breakdown.missionTotal ?? "-"} />
+        </div>
+
+        <div className="score-shot-list">
+          {shots.map((shot, index) => {
+            const shotBreakdown = breakdown.shots?.[index] || {};
+            return (
+              <article key={index} className="score-shot-card">
+                <div className="score-shot-head">
+                  <strong>ยิงครั้งที่ {index + 1}</strong>
+                  <span>{shotBreakdown.total ?? 0} คะแนน</span>
+                </div>
+                <div className="score-detail-grid">
+                  <span>ตำแหน่ง</span><strong>{targetLabel(shot.target)}</strong>
+                  <span>ระยะ</span><strong>{shot.distancePassed ? "ผ่าน" : "ไม่ผ่าน"}</strong>
+                  <span>ออโต้</span><strong>{autoLabel(shot.autoLaunch)}</strong>
+                  <span>สัมผัส</span><strong>{touchSummary(shot)}</strong>
+                  <span>ลูกที่ 1</span><strong>{ballResultLabel(shot, 0)}</strong>
+                  <span>ลูกที่ 2</span><strong>{ballResultLabel(shot, 1)}</strong>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+
+        <p className="muted score-saved-meta">บันทึกโดย {score.updatedBy || "-"} {score.updatedAt ? `• ${formatSavedAt(score.updatedAt)}` : ""}</p>
+      </section>
+    </div>
+  );
+}
+
+function autoLabel(value) {
+  if (value === true) return "ออโต้";
+  if (value === false) return "ไม่ออโต้";
+  return "-";
+}
+
+function touchSummary(shot) {
+  if (!shot?.touches) return "-";
+  return shot.touches.map((touched, index) => `ลูก${index + 1}: ${touched ? "สัมผัส" : "ไม่สัมผัส"}`).join(" / ");
+}
+
+function ballResultLabel(shot, ballIndex) {
+  if (shot?.touches?.[ballIndex]) return "สัมผัสก่อนเป้าหมาย";
+  const result = shot?.results?.[ballIndex];
+  if (shot?.distancePassed === false) return "ระยะไม่ผ่าน";
+  if (shot?.target === TARGETS.point3) return result === "score" ? "เข้า 10" : "ไม่ได้คะแนน";
+  if (shot?.target === TARGETS.launcher) {
+    if (result === "a") return "A";
+    if (result === "b") return "B";
+    if (result === "c") return "C";
+    return "ไม่ได้คะแนน";
+  }
+  return "-";
+}
+
+function formatSavedAt(value) {
+  const date = value?.toDate ? value.toDate() : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString("th-TH");
 }
 
 function JudgeAssignmentPanel({ levelId, teams, assignments, onSave }) {
