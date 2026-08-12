@@ -226,11 +226,6 @@ function buildPkProgress(pkNeeds, pkRounds, pkAttempts, awardCutoff, policy) {
         });
       });
       groups = nextGroups;
-      if (groups.length) {
-        groups.forEach((group) => group.teamIds.forEach((teamId) => nextTeamIds.add(teamId)));
-        unresolved.push(...groups.map((group) => ({ ...group, round: round + 1, complete: false, pendingTeamIds: group.teamIds })));
-        break;
-      }
     }
   });
 
