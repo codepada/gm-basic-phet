@@ -452,6 +452,20 @@ h2 {
   padding: 10px;
 }
 
+.judge-pk-list article.pk-complete {
+  border-color: #df8b94;
+  background: #fff1f2;
+}
+
+.judge-pk-list article.pk-complete strong,
+.judge-pk-list article.pk-complete span {
+  color: var(--red);
+}
+
+.judge-pk-list article.pk-complete .edit-score-button {
+  background: var(--red);
+}
+
 .judge-pk-list article > div {
   display: grid;
   gap: 3px;

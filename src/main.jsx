@@ -913,12 +913,12 @@ function JudgePage({ teams, allTeams, scores, settings, levelId, assignment, pkO
               const pkRound = currentPkRoundForTeam(settings, levelId, team.id);
               const attempt = pkAttemptForRound(pkAttempts, team.id, pkRound);
               return (
-              <article key={team.id}>
+              <article key={team.id} className={attempt ? "pk-complete" : ""}>
                 <div>
                   <strong>{team.order}. {team.teamName || team.name} • PK{pkRound}</strong>
                   <span>{attempt ? `บันทึกแล้ว ${attempt.score} คะแนน` : team.school || "ไม่ระบุโรงเรียน"}</span>
                 </div>
-                <button className={attempt ? "edit-score-button" : ""} onClick={() => onPkScore(team)}>{attempt ? "แก้ PK" : "ไปให้คะแนน"}</button>
+                <button className={attempt ? "edit-score-button" : ""} onClick={() => onPkScore(team)}>{attempt ? "แก้ PK" : "เริ่มให้คะแนน"}</button>
               </article>
               );
             })}
