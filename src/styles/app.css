@@ -1372,7 +1372,18 @@ textarea {
   min-height: 0;
   height: 100%;
   padding: 10px;
-  font-size: clamp(1.1rem, 4vw, 1.5rem);
+  font-size: clamp(1.28rem, 5vw, 2rem);
+  line-height: 1.08;
+}
+
+.phase-score .point3-result-choice span {
+  max-width: 10ch;
+  font-size: inherit;
+  line-height: 1.08;
+}
+
+.phase-score .point3-result-choice small {
+  font-size: clamp(0.9rem, 3vw, 1.12rem);
 }
 
 .smooth-score {
