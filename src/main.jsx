@@ -1035,7 +1035,7 @@ function JudgePage({ teams, allTeams, scores, settings, levelId, assignment, pkO
           {pkOrders?.length ? <span>PK ที่ได้รับมอบหมาย: ทีมลำดับ {pkOrders.join(", ")}</span> : null}
         </section>
       ) : null}
-      {assignedPkTeams.length ? (
+      {assignedPkTeams.length && !isCompetitionFinal ? (
         <section className="panel judge-pk-panel">
           <div>
             <p className="eyebrow">PK</p>
