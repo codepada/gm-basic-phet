@@ -531,6 +531,16 @@ h2 {
   overflow-wrap: anywhere;
 }
 
+.pk-need-list .pk-next-round-card {
+  border-color: #df8b94;
+  background: #fff1f2;
+}
+
+.pk-need-list .pk-next-round-card strong,
+.pk-need-list .pk-next-round-card span {
+  color: var(--red);
+}
+
 .pk-status-list,
 .pk-result-list {
   display: grid;
@@ -589,6 +599,10 @@ h2 {
   padding: 2px 6px;
   font-size: 0.72rem;
   line-height: 1.4;
+}
+
+.pk-badges b.pending {
+  background: var(--red);
 }
 
 .pk-judge-head {

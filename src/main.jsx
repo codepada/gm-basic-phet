@@ -1471,7 +1471,7 @@ function PkStatusPanel({ allTeamsComplete, pkNeeds, pkTeams, pkRounds, pkAttempt
       {pkProgress?.unresolved?.length ? (
         <div className="pk-need-list">
           {pkProgress.unresolved.map((group) => (
-            <div key={`${group.round}-${group.teamIds.join("-")}`}>
+            <div key={`${group.round}-${group.teamIds.join("-")}`} className="pk-next-round-card">
               <strong>ต้องยิง PK{group.round}</strong>
               <span>ชิงอันดับ {group.startPlace}-{group.endPlace} • {group.teamIds.length} ทีม</span>
             </div>
@@ -1507,7 +1507,7 @@ function PkScoreBadges({ rounds, scores }) {
     <span className="pk-badges pk-score-badges">
       {labels.map((round) => {
         const hasScore = scoreByRound[round] !== undefined;
-        return <b key={round}>{`PK${round}${hasScore ? ` ${scoreByRound[round]} คะแนน` : " รอคะแนน"}`}</b>;
+        return <b key={round} className={hasScore ? "" : "pending"}>{`PK${round}${hasScore ? ` ${scoreByRound[round]} คะแนน` : " รอคะแนน"}`}</b>;
       })}
     </span>
   );
