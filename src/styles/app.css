@@ -989,6 +989,7 @@ textarea {
   gap: 10px;
   padding: 12px;
   min-height: 0;
+  height: 100%;
   overflow: auto;
   -webkit-overflow-scrolling: touch;
 }
@@ -1062,13 +1063,14 @@ textarea {
 }
 
 .phase-operation .score-section {
-  grid-template-rows: none;
-  align-content: start;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+  align-content: stretch;
 }
 
 .phase-operation .choice {
   height: auto;
   min-height: 64px;
+  font-size: clamp(1.05rem, 3.2vw, 1.28rem);
 }
 
 .phase-score .result-grid {
@@ -1121,6 +1123,7 @@ textarea {
   line-height: 1.12;
   overflow-wrap: anywhere;
   white-space: normal;
+  font-size: clamp(1rem, 2.8vw, 1.24rem);
 }
 
 .choice span {
@@ -1130,7 +1133,7 @@ textarea {
 
 .choice small {
   color: var(--muted);
-  font-size: 0.74rem;
+  font-size: clamp(0.74rem, 2.2vw, 0.9rem);
   font-weight: 900;
   line-height: 1.08;
 }
@@ -1280,12 +1283,14 @@ textarea {
   padding: 8px;
   background: #fbfcfc;
   min-width: 0;
+  align-content: stretch;
 }
 
 .ball-card > strong {
   min-width: 0;
   text-align: center;
   overflow-wrap: anywhere;
+  font-size: clamp(1rem, 2.8vw, 1.2rem);
 }
 
 .ball-card-grid {
@@ -1293,6 +1298,27 @@ textarea {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   grid-auto-rows: minmax(0, 1fr);
   gap: 6px;
+  min-height: 0;
+}
+
+.touch-grid {
+  height: 100%;
+  align-content: stretch;
+}
+
+.touch-card {
+  min-height: 190px;
+}
+
+.touch-card .choice-grid {
+  height: 100%;
+  grid-auto-rows: minmax(0, 1fr);
+}
+
+.touch-card .choice {
+  min-height: 0;
+  height: 100%;
+  font-size: clamp(1.18rem, 4vw, 1.55rem);
 }
 
 .sub-section {
@@ -1336,7 +1362,7 @@ textarea {
   place-items: center;
   border-radius: 8px;
   background: #eef4f1;
-  font-size: 1.2rem;
+  font-size: clamp(1.2rem, 3.6vw, 1.55rem);
 }
 
 .check-row {
@@ -1811,12 +1837,25 @@ textarea {
   }
 
   .phase-operation .score-section {
-    grid-template-rows: none;
+    grid-template-rows: auto auto auto minmax(0, 1fr);
   }
 
   .phase-operation .sub-section,
   .phase-operation .smooth-grid {
     min-height: auto;
+  }
+
+  .touch-grid {
+    min-height: 260px;
+  }
+
+  .touch-card {
+    min-height: 180px;
+  }
+
+  .touch-card .choice {
+    min-height: 0;
+    font-size: clamp(1.08rem, 5vw, 1.42rem);
   }
 
   .shot-summary-grid {
@@ -1973,6 +2012,19 @@ textarea {
 
   .phase-operation .choice {
     min-height: 48px;
+  }
+
+  .touch-grid {
+    min-height: 210px;
+  }
+
+  .touch-card {
+    min-height: 150px;
+  }
+
+  .touch-card .choice {
+    min-height: 0;
+    font-size: clamp(0.98rem, 4.5vw, 1.24rem);
   }
 
   .phase-score .ball-card {

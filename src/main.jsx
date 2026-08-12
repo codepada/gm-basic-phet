@@ -1848,9 +1848,9 @@ function BallTouchChoice({ ballIndex, shot, onChange }) {
   };
 
   return (
-    <div className="ball-card">
+    <div className="ball-card touch-card">
       <strong>ลูกที่ {ballIndex + 1}</strong>
-      <ChoiceGrid columns={2}>
+      <ChoiceGrid columns={1}>
         <button className={touched === true ? "choice fail active" : "choice fail"} onClick={() => setTouched(true)}>สัมผัส</button>
         <button className={touched === false ? "choice pass active" : "choice pass"} onClick={() => setTouched(false)}>ไม่สัมผัส</button>
       </ChoiceGrid>
