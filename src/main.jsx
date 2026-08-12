@@ -1833,7 +1833,7 @@ function ScoreWizard({ levelId, team, existing, onCancel, onSave }) {
 
 function PkScoreWizard({ levelId, team, pkRound, onCancel, onSave }) {
   const pkShotIndex = 1;
-  const [shot, setShot] = useState(() => blankShot(false));
+  const [shot, setShot] = useState(() => ({ ...blankShot(false), distancePassed: true }));
   const [step, setStep] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
@@ -1935,9 +1935,8 @@ function buildWizardSteps() {
 function buildPkWizardSteps(pkRound, shotIndex) {
   return [
     { type: "shot", shotIndex, phase: "position", shortLabel: "PK.1", title: `PK${pkRound}: ตำแหน่งลูกบอล` },
-    { type: "shot", shotIndex, phase: "distance", shortLabel: "PK.2", title: `PK${pkRound}: ระยะยิง` },
-    { type: "shot", shotIndex, phase: "operation", shortLabel: "PK.3", title: `PK${pkRound}: การทำงาน` },
-    { type: "shot", shotIndex, phase: "score", shortLabel: "PK.4", title: `PK${pkRound}: คะแนนพื้นที่` },
+    { type: "shot", shotIndex, phase: "operation", shortLabel: "PK.2", title: `PK${pkRound}: การทำงาน` },
+    { type: "shot", shotIndex, phase: "score", shortLabel: "PK.3", title: `PK${pkRound}: คะแนนพื้นที่` },
     { type: "shotSummary", shotIndex, shortLabel: "สรุป", title: `สรุป PK${pkRound}` },
   ];
 }
@@ -2095,7 +2094,7 @@ function ShotSummaryStep({ index, shot, breakdown, displayLabel }) {
 
       <div className="shot-summary-grid">
         <Metric label="ตำแหน่ง" value={targetLabel(shot.target)} />
-        <Metric label="ระยะยิง" value={shot.distancePassed ? "ผ่าน" : "ไม่ผ่าน"} />
+        {!displayLabel ? <Metric label="ระยะยิง" value={shot.distancePassed ? "ผ่าน" : "ไม่ผ่าน"} /> : null}
         {breakdown.smoothness !== null ? <Metric label="ราบรื่น" value={breakdown.smoothness} /> : null}
         <Metric label="ออโต้" value={breakdown.auto} />
         <Metric label="พื้นที่" value={breakdown.mission} />
