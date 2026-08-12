@@ -38,6 +38,16 @@ export function listenMainScores(levelId, callback, onError) {
   );
 }
 
+export function listenPkAttempts(levelId, callback, onError) {
+  return onSnapshot(
+    query(pkAttemptsCol(levelId)),
+    (snapshot) => {
+      callback(snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })));
+    },
+    onError,
+  );
+}
+
 export function listenSettings(callback, onError) {
   return onSnapshot(
     settingsRef(),

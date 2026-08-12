@@ -19,7 +19,7 @@ import { pkNeededForMain } from "./core/pk.js";
 import { nextUnscoredTeam } from "./core/teams.js";
 import { sampleTeams } from "./data/sampleTeams.js";
 import { auth, isFirebaseConfigured } from "./firebase/config.js";
-import { listenMainScores, listenSettings, listenTeams, resetLevelMainScores, saveSettings, saveTeamSetup, submitAssignedPkScore, submitMainScore } from "./firebase/services.js";
+import { listenMainScores, listenPkAttempts, listenSettings, listenTeams, resetLevelMainScores, saveSettings, saveTeamSetup, submitAssignedPkScore, submitMainScore } from "./firebase/services.js";
 import "./styles/app.css";
 
 const initialTeams = Object.fromEntries(
@@ -152,6 +152,94 @@ function currentPkRoundForTeam(settings, levelId, teamId) {
   return Math.max(1, ...rounds.map(Number).filter(Boolean));
 }
 
+function toMillis(value) {
+  if (!value) return 0;
+  if (value.toMillis) return value.toMillis();
+  if (value.toDate) return value.toDate().getTime();
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+}
+
+function pkAttemptForRound(pkAttempts, teamId, pkRound) {
+  return pkAttempts
+    .filter((attempt) => attempt.teamId === teamId && Number(attempt.pkRound) === Number(pkRound))
+    .sort((a, b) => toMillis(b.updatedAt || b.createdAt) - toMillis(a.updatedAt || a.createdAt))[0] || null;
+}
+
+function pkScoresForTeam(pkAttempts, teamId) {
+  const rounds = [...new Set(pkAttempts.filter((attempt) => attempt.teamId === teamId).map((attempt) => Number(attempt.pkRound)).filter(Boolean))].sort((a, b) => a - b);
+  return rounds.map((round) => {
+    const attempt = pkAttemptForRound(pkAttempts, teamId, round);
+    return { round, score: attempt?.score ?? 0, attempt };
+  });
+}
+
+function pkTieNeedsMore(startPlace, endPlace, awardCutoff, policy) {
+  if (policy === PK_POLICY.exactRanking) return startPlace <= awardCutoff;
+  return startPlace <= 3 || (startPlace <= awardCutoff && endPlace > awardCutoff);
+}
+
+function buildPkProgress(pkNeeds, pkRounds, pkAttempts, awardCutoff, policy) {
+  const unresolved = [];
+  const nextTeamIds = new Set();
+
+  pkNeeds.forEach((need) => {
+    let groups = [{ teamIds: need.teamIds, startPlace: need.placeStart, endPlace: need.placeEnd }];
+    const maxMarkedRound = Math.max(1, ...need.teamIds.flatMap((teamId) => (pkRounds[teamId] || []).map(Number).filter(Boolean)));
+
+    for (let round = 1; round <= maxMarkedRound + 1 && groups.length; round += 1) {
+      const nextGroups = [];
+      groups.forEach((group) => {
+        const marked = group.teamIds.every((teamId) => (pkRounds[teamId] || []).map(Number).includes(round));
+        const attempts = group.teamIds.map((teamId) => ({ teamId, attempt: pkAttemptForRound(pkAttempts, teamId, round) }));
+        const complete = marked && attempts.every((item) => item.attempt);
+
+        if (!complete) {
+          group.teamIds.forEach((teamId) => nextTeamIds.add(teamId));
+          unresolved.push({
+            ...group,
+            round,
+            complete: false,
+            pendingTeamIds: attempts.filter((item) => !item.attempt).map((item) => item.teamId),
+          });
+          return;
+        }
+
+        const scoreGroups = [];
+        attempts
+          .sort((a, b) => (b.attempt?.score ?? 0) - (a.attempt?.score ?? 0))
+          .forEach((item) => {
+            const score = item.attempt?.score ?? 0;
+            const existing = scoreGroups.find((scoreGroup) => scoreGroup.score === score);
+            if (existing) existing.teamIds.push(item.teamId);
+            else scoreGroups.push({ score, teamIds: [item.teamId] });
+          });
+
+        let cursor = group.startPlace;
+        scoreGroups.forEach((scoreGroup) => {
+          const startPlace = cursor;
+          const endPlace = cursor + scoreGroup.teamIds.length - 1;
+          if (scoreGroup.teamIds.length > 1 && pkTieNeedsMore(startPlace, endPlace, awardCutoff, policy)) {
+            nextGroups.push({ teamIds: scoreGroup.teamIds, startPlace, endPlace });
+          }
+          cursor = endPlace + 1;
+        });
+      });
+      groups = nextGroups;
+      if (groups.length) {
+        groups.forEach((group) => group.teamIds.forEach((teamId) => nextTeamIds.add(teamId)));
+        unresolved.push(...groups.map((group) => ({ ...group, round: round + 1, complete: false, pendingTeamIds: group.teamIds })));
+        break;
+      }
+    }
+  });
+
+  return {
+    unresolved,
+    nextTeamIds: [...nextTeamIds],
+  };
+}
+
 function loginEmailForId(id) {
   return `${id.toLowerCase()}@${AUTH_EMAIL_DOMAIN}`;
 }
@@ -196,6 +284,7 @@ function App() {
   const [levelId, setLevelId] = useState(session?.role && session.role !== ADMIN_ID ? JUDGE_LEVEL_BY_ID[session.role] || "el" : "el");
   const [teamsByLevel, setTeamsByLevel] = useState(() => readStoredValue(STORAGE_KEYS.teams, initialTeams));
   const [scores, setScores] = useState(() => readStoredValue(STORAGE_KEYS.scores, {}));
+  const [pkAttempts, setPkAttempts] = useState([]);
   const [settings, setSettings] = useState(() => ({ ...defaultSettings(), ...readStoredValue(STORAGE_KEYS.settings, {}) }));
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [selectedPkTeam, setSelectedPkTeam] = useState(null);
@@ -325,6 +414,21 @@ function App() {
     return unsubscribe;
   }, [authReady, levelId, session?.role]);
 
+  useEffect(() => {
+    if (!isFirebaseConfigured || !session || !authReady) return undefined;
+    const unsubscribe = listenPkAttempts(
+      levelId,
+      (remoteAttempts) => {
+        setPkAttempts(remoteAttempts);
+      },
+      (error) => {
+        setSyncStatus("อ่านคะแนน PK จาก Firebase ไม่ได้");
+        setSyncError(error.message);
+      },
+    );
+    return unsubscribe;
+  }, [authReady, levelId, session?.role]);
+
   const saveMainScore = async (team, draft, reason = "") => {
     const before = scores[team.id] || null;
     const breakdown = mainScore(draft);
@@ -416,6 +520,19 @@ function App() {
       ...current,
     ]);
     setSelectedPkTeam(null);
+    setPkAttempts((current) => {
+      const nextAttempt = {
+        ...draft,
+        id: `${team.id}-pk${pkRound}-${role}`,
+        levelId,
+        teamId: team.id,
+        pkRound,
+        score,
+        updatedAt: new Date().toISOString(),
+        updatedBy: role,
+      };
+      return [nextAttempt, ...current.filter((attempt) => !(attempt.teamId === team.id && Number(attempt.pkRound) === pkRound && attempt.updatedBy === role))];
+    });
     setSaveResult({ savedTeam: { ...team, name: fullTeamName(team) }, nextTeam: null, total: score, mode: "pk", pkRound });
   };
 
@@ -620,12 +737,13 @@ function App() {
       {role === ADMIN_ID ? <LevelTabs levelId={levelId} setLevelId={setLevelId} /> : null}
 
       {role === ADMIN_ID ? (
-        <AdminPage
-          levelId={levelId}
-          teams={enrichedTeams}
-          scores={scores}
-          auditLogs={auditLogs}
-          settings={settings}
+          <AdminPage
+            levelId={levelId}
+            teams={enrichedTeams}
+            scores={scores}
+            pkAttempts={pkAttempts}
+            auditLogs={auditLogs}
+            settings={settings}
           isCloudReady={isFirebaseConfigured && !syncError}
           setupStatus={setupStatus}
           awardCutoff={awardCutoff}
@@ -640,7 +758,7 @@ function App() {
           }}
         />
       ) : (
-        <JudgePage teams={visibleTeams} allTeams={enrichedTeams} scores={scores} assignment={currentJudgeAssignment} pkOrders={pkOrdersForJudge(settings, role)} onScore={setSelectedTeam} onPkScore={setSelectedPkTeam} />
+        <JudgePage teams={visibleTeams} allTeams={enrichedTeams} scores={scores} settings={settings} levelId={levelId} assignment={currentJudgeAssignment} pkOrders={pkOrdersForJudge(settings, role)} pkAttempts={pkAttempts} onScore={setSelectedTeam} onPkScore={setSelectedPkTeam} />
       )}
     </main>
   );
@@ -742,7 +860,7 @@ function SaveCompletePage({ result, levelId, onNext, onList }) {
 
         <div className="save-next">
           <span>{isPk ? "สถานะ" : "ทีมถัดไป"}</span>
-          <strong>{isPk ? "บันทึก PK แล้ว" : result.nextTeam ? result.nextTeam.name : "ครบทุกทีมแล้ว"}</strong>
+          <strong>{isPk ? `บันทึก PK${result.pkRound || ""} แล้ว ${result.total} คะแนน` : result.nextTeam ? result.nextTeam.name : "ครบทุกทีมแล้ว"}</strong>
         </div>
 
         <div className="save-actions">
@@ -766,7 +884,7 @@ function LevelTabs({ levelId, setLevelId }) {
   );
 }
 
-function JudgePage({ teams, allTeams, scores, assignment, pkOrders, onScore, onPkScore }) {
+function JudgePage({ teams, allTeams, scores, settings, levelId, assignment, pkOrders, pkAttempts, onScore, onPkScore }) {
   const [viewingScore, setViewingScore] = useState(null);
   const isEnabled = assignment?.enabled !== false;
   const pkOrderSet = new Set((pkOrders || []).map(Number));
@@ -791,15 +909,19 @@ function JudgePage({ teams, allTeams, scores, assignment, pkOrders, onScore, onP
             <h2>ทีม PK ที่ได้รับมอบหมาย</h2>
           </div>
           <div className="judge-pk-list">
-            {assignedPkTeams.map((team) => (
+            {assignedPkTeams.map((team) => {
+              const pkRound = currentPkRoundForTeam(settings, levelId, team.id);
+              const attempt = pkAttemptForRound(pkAttempts, team.id, pkRound);
+              return (
               <article key={team.id}>
                 <div>
-                  <strong>{team.order}. {team.teamName || team.name}</strong>
-                  <span>{team.school || "ไม่ระบุโรงเรียน"}</span>
+                  <strong>{team.order}. {team.teamName || team.name} • PK{pkRound}</strong>
+                  <span>{attempt ? `บันทึกแล้ว ${attempt.score} คะแนน` : team.school || "ไม่ระบุโรงเรียน"}</span>
                 </div>
-                <button onClick={() => onPkScore(team)}>ไปให้คะแนน</button>
+                <button className={attempt ? "edit-score-button" : ""} onClick={() => onPkScore(team)}>{attempt ? "แก้ PK" : "ไปให้คะแนน"}</button>
               </article>
-            ))}
+              );
+            })}
           </div>
         </section>
       ) : null}
@@ -834,7 +956,7 @@ function JudgePage({ teams, allTeams, scores, assignment, pkOrders, onScore, onP
   );
 }
 
-function AdminPage({ levelId, teams, scores, auditLogs, settings, isCloudReady, setupStatus, awardCutoff, setAwardCutoff, pkPolicy, setPkPolicy, onSaveTeamSetup, onResetScores, onSaveSettings }) {
+function AdminPage({ levelId, teams, scores, pkAttempts, auditLogs, settings, isCloudReady, setupStatus, awardCutoff, setAwardCutoff, pkPolicy, setPkPolicy, onSaveTeamSetup, onResetScores, onSaveSettings }) {
   const [adminTab, setAdminTab] = useState("dashboard");
   const [viewingScore, setViewingScore] = useState(null);
   const [pkSettingsStatus, setPkSettingsStatus] = useState("");
@@ -847,10 +969,12 @@ function AdminPage({ levelId, teams, scores, auditLogs, settings, isCloudReady, 
   const pkTeams = teams.filter((team) => pkTeamIds.has(team.id)).sort((a, b) => a.order - b.order);
   const selectedPkTeams = pkTeams.filter((team) => selectedPkTeamIds.includes(team.id));
   const pkRounds = settings.pkRoundsByLevel?.[levelId] || {};
+  const pkProgress = useMemo(() => buildPkProgress(pkNeeds, pkRounds, pkAttempts, awardCutoff, pkPolicy), [pkNeeds, pkRounds, pkAttempts, awardCutoff, pkPolicy]);
 
   useEffect(() => {
-    setSelectedPkTeamIds(pkTeams.map((team) => team.id));
-  }, [levelId, pkTeams.map((team) => team.id).join("|")]);
+    const nextIds = pkProgress.nextTeamIds;
+    setSelectedPkTeamIds(nextIds);
+  }, [levelId, pkTeams.map((team) => team.id).join("|"), pkProgress.nextTeamIds.join("|")]);
 
   const savePkSettings = async () => {
     if (!window.confirm(`ยืนยันบันทึกตั้งค่า PK ของ ${LEVEL_LABELS[levelId]} หรือไม่?`)) return;
@@ -874,7 +998,14 @@ function AdminPage({ levelId, teams, scores, auditLogs, settings, isCloudReady, 
 
   const markCurrentPkRound = async () => {
     if (!selectedPkTeams.length) return;
-    const nextRound = Math.max(0, ...selectedPkTeams.flatMap((team) => (pkRounds[team.id] || []).map(Number).filter(Boolean))) + 1;
+    const selectedIds = new Set(selectedPkTeams.map((team) => team.id));
+    const currentNeed = pkProgress.unresolved.find((group) => group.teamIds.some((teamId) => selectedIds.has(teamId)));
+    const nextRound = currentNeed?.round || Math.max(0, ...selectedPkTeams.flatMap((team) => (pkRounds[team.id] || []).map(Number).filter(Boolean))) + 1;
+    const alreadyOpened = selectedPkTeams.every((team) => (pkRounds[team.id] || []).map(Number).includes(nextRound));
+    if (alreadyOpened) {
+      window.alert(`PK${nextRound} เปิดไว้แล้ว รอกรรมการบันทึกคะแนนรอบนี้ให้ครบก่อน`);
+      return;
+    }
     if (!window.confirm(`ยืนยันบันทึก ${selectedPkTeams.length} ทีมนี้เป็น PK${nextRound} หรือไม่?`)) return;
     const nextLevelRounds = { ...pkRounds };
     selectedPkTeams.forEach((team) => {
@@ -937,6 +1068,8 @@ function AdminPage({ levelId, teams, scores, auditLogs, settings, isCloudReady, 
             pkNeeds={pkNeeds}
             pkTeams={pkTeams}
             pkRounds={pkRounds}
+            pkAttempts={pkAttempts}
+            pkProgress={pkProgress}
             selectedTeamIds={selectedPkTeamIds}
             onSelectedTeamIdsChange={setSelectedPkTeamIds}
             onMarkRound={markCurrentPkRound}
@@ -1275,7 +1408,7 @@ function PkSettingsPanel({ levelId, awardCutoff, setAwardCutoff, pkPolicy, setPk
   );
 }
 
-function PkStatusPanel({ allTeamsComplete, pkNeeds, pkTeams, pkRounds, selectedTeamIds, onSelectedTeamIdsChange, onMarkRound }) {
+function PkStatusPanel({ allTeamsComplete, pkNeeds, pkTeams, pkRounds, pkAttempts, pkProgress, selectedTeamIds, onSelectedTeamIdsChange, onMarkRound }) {
   const selected = new Set(selectedTeamIds);
   const toggleTeam = (teamId) => {
     onSelectedTeamIdsChange((current) => (
@@ -1303,6 +1436,16 @@ function PkStatusPanel({ allTeamsComplete, pkNeeds, pkTeams, pkRounds, selectedT
           ))}
         </div>
       ) : null}
+      {pkProgress?.unresolved?.length ? (
+        <div className="pk-need-list">
+          {pkProgress.unresolved.map((group) => (
+            <div key={`${group.round}-${group.teamIds.join("-")}`}>
+              <strong>ต้องยิง PK{group.round}</strong>
+              <span>ชิงอันดับ {group.startPlace}-{group.endPlace} • {group.teamIds.length} ทีม</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
       {pkTeams.length ? (
         <div className="pk-result-list">
           {pkTeams.map((team) => (
@@ -1311,16 +1454,30 @@ function PkStatusPanel({ allTeamsComplete, pkNeeds, pkTeams, pkRounds, selectedT
                 <input type="checkbox" checked={selected.has(team.id)} onChange={() => toggleTeam(team.id)} />
                 <span>{team.order}. {team.teamName || team.name}</span>
               </label>
-              <PkBadges labels={pkRoundLabels(pkRounds, team.id)} />
+              <PkScoreBadges rounds={pkRounds[team.id] || []} scores={pkScoresForTeam(pkAttempts, team.id)} />
             </div>
           ))}
         </div>
       ) : null}
       <div className="setup-actions">
-        <p className="muted">ติ๊กเฉพาะทีมที่ต้องยิงรอบนี้ เช่น PK1 เลือกทุกทีมที่เสมอ ถ้ายังเสมอต่อ PK2 ให้เหลือเฉพาะทีมที่ยังเสมอ</p>
+        <p className="muted">ระบบจะติ๊กทีมที่ต้องยิงรอบถัดไปให้เองเมื่อคะแนน PK รอบก่อนครบแล้ว ตรวจชื่อทีมแล้วกดบันทึกรอบ PK</p>
         <button disabled={!selectedTeamIds.length} onClick={onMarkRound}>บันทึกรอบ PK ของทีมที่ติ๊กไว้</button>
       </div>
     </section>
+  );
+}
+
+function PkScoreBadges({ rounds, scores }) {
+  const scoreByRound = Object.fromEntries(scores.map((item) => [item.round, item.score]));
+  const labels = [...new Set([...rounds.map(Number).filter(Boolean), ...scores.map((item) => item.round)])].sort((a, b) => a - b);
+  if (!labels.length) return null;
+  return (
+    <span className="pk-badges pk-score-badges">
+      {labels.map((round) => {
+        const hasScore = scoreByRound[round] !== undefined;
+        return <b key={round}>{`PK${round}${hasScore ? ` ${scoreByRound[round]} คะแนน` : " รอคะแนน"}`}</b>;
+      })}
+    </span>
   );
 }
 
