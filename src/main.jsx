@@ -351,7 +351,7 @@ function loginIdFromEmail(email) {
 }
 
 function authPasswordForLogin(id, password) {
-  if (id === ADMIN_ID) return password;
+  if (id === ADMIN_ID) return password === "1122" ? "112211" : password;
   return password === "1234" ? "123456" : password;
 }
 
