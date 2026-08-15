@@ -2098,6 +2098,11 @@ function ScoreWizard({ levelId, team, existing, onCancel, onSave }) {
     }
   };
 
+  const handleCancel = () => {
+    if (!window.confirm(`ยืนยันปิดหน้ากรอกคะแนน ${displayTeamName(team)} หรือไม่?\nคะแนนที่เลือกไว้แต่ยังไม่ได้บันทึกจะหาย และระบบจะกลับไปหน้าแรก`)) return;
+    onCancel();
+  };
+
   return (
     <main className={`app-shell wizard-shell level-theme-${levelId}`}>
       <header className="topbar">
@@ -2106,7 +2111,7 @@ function ScoreWizard({ levelId, team, existing, onCancel, onSave }) {
           {team.school ? <p className="school-heading">{team.school}</p> : null}
           <h1>ให้คะแนนรอบแรก</h1>
         </div>
-        <button className="ghost" onClick={onCancel}>ปิด</button>
+        <button className="ghost" onClick={handleCancel}>ปิด</button>
       </header>
 
       <WizardProgress step={step} steps={steps} setStep={setStep} />
@@ -2195,6 +2200,11 @@ function PkScoreWizard({ levelId, team, pkRound, onCancel, onSave }) {
     }
   };
 
+  const handleCancel = () => {
+    if (!window.confirm(`ยืนยันปิดหน้ากรอกคะแนน PK${pkRound} ${displayTeamName(team)} หรือไม่?\nคะแนน PK ที่เลือกไว้แต่ยังไม่ได้บันทึกจะหาย และระบบจะกลับไปหน้าแรก`)) return;
+    onCancel();
+  };
+
   return (
     <main className={`app-shell wizard-shell level-theme-${levelId}`}>
       <header className="topbar">
@@ -2203,7 +2213,7 @@ function PkScoreWizard({ levelId, team, pkRound, onCancel, onSave }) {
           {team.school ? <p className="school-heading">{team.school}</p> : null}
           <h1>ให้คะแนน PK{pkRound}</h1>
         </div>
-        <button className="ghost" onClick={onCancel}>ปิด</button>
+        <button className="ghost" onClick={handleCancel}>ปิด</button>
       </header>
 
       <WizardProgress step={step} steps={steps} setStep={setStep} />
