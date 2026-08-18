@@ -38,6 +38,7 @@ const initialTeams = Object.fromEntries(
 const STORAGE_KEYS = {
   teams: "gm-basic-phet.teamsByLevel",
   scores: "gm-basic-phet.scores",
+  scoreDrafts: "gm-basic-phet.scoreDrafts",
   auditLogs: "gm-basic-phet.auditLogs",
   session: "gm-basic-phet.session",
   settings: "gm-basic-phet.settings",
@@ -54,6 +55,26 @@ function readStoredValue(key, fallback) {
 
 function writeStoredValue(key, value) {
   window.localStorage.setItem(key, JSON.stringify(value));
+}
+
+function scoreDraftKey(levelId, teamId, mode, pkRound = "") {
+  return [levelId, teamId, mode, pkRound].filter(Boolean).join(":");
+}
+
+function readScoreDraft(key) {
+  return readStoredValue(STORAGE_KEYS.scoreDrafts, {})[key] || null;
+}
+
+function writeScoreDraft(key, draft) {
+  const drafts = readStoredValue(STORAGE_KEYS.scoreDrafts, {});
+  writeStoredValue(STORAGE_KEYS.scoreDrafts, { ...drafts, [key]: draft });
+}
+
+function clearScoreDraft(key) {
+  const drafts = readStoredValue(STORAGE_KEYS.scoreDrafts, {});
+  if (!drafts[key]) return;
+  const { [key]: _removed, ...nextDrafts } = drafts;
+  writeStoredValue(STORAGE_KEYS.scoreDrafts, nextDrafts);
 }
 
 function defaultSettings() {
@@ -2066,10 +2087,12 @@ function TeamSetupPanel({ levelId, teams, status, onSave }) {
 }
 
 function ScoreWizard({ levelId, team, existing, onCancel, onSave }) {
-  const [deviceCount, setDeviceCount] = useState(existing?.deviceCount ?? null);
-  const [shots, setShots] = useState(existing?.shots ?? [blankShot(true), blankShot(false), blankShot(false)]);
+  const draftKey = scoreDraftKey(levelId, team.id, "main");
+  const storedDraft = readScoreDraft(draftKey);
+  const [deviceCount, setDeviceCount] = useState(existing?.deviceCount ?? storedDraft?.deviceCount ?? null);
+  const [shots, setShots] = useState(existing?.shots ?? storedDraft?.shots ?? [blankShot(true), blankShot(false), blankShot(false)]);
   const [reason, setReason] = useState("");
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(storedDraft?.step ?? 0);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const draft = { deviceCount, shots };
@@ -2086,12 +2109,22 @@ function ScoreWizard({ levelId, team, existing, onCancel, onSave }) {
     setShots((current) => current.map((shot, shotIndex) => (shotIndex === index ? { ...shot, ...patch } : shot)));
   };
 
+  useEffect(() => {
+    writeScoreDraft(draftKey, {
+      deviceCount,
+      shots,
+      step,
+      updatedAt: new Date().toISOString(),
+    });
+  }, [deviceCount, draftKey, shots, step]);
+
   const handleSave = async () => {
     if (!window.confirm(`ยืนยันบันทึกคะแนน ${displayTeamName(team)} หรือไม่?`)) return;
     setIsSaving(true);
     setSaveError("");
     try {
       await onSave(team, draft, reason);
+      clearScoreDraft(draftKey);
     } catch (error) {
       setSaveError(error.message || "บันทึกไม่สำเร็จ");
       setIsSaving(false);
@@ -2099,7 +2132,7 @@ function ScoreWizard({ levelId, team, existing, onCancel, onSave }) {
   };
 
   const handleCancel = () => {
-    if (!window.confirm(`ยืนยันปิดหน้ากรอกคะแนน ${displayTeamName(team)} หรือไม่?\nคะแนนที่เลือกไว้แต่ยังไม่ได้บันทึกจะหาย และระบบจะกลับไปหน้าแรก`)) return;
+    if (!window.confirm(`ยืนยันปิดหน้ากรอกคะแนน ${displayTeamName(team)} หรือไม่?\nคะแนนนี้ยังไม่บันทึกลงฐานกลาง แต่แบบร่างล่าสุดจะอยู่ในเครื่องนี้เมื่อกลับมาเปิดทีมเดิม`)) return;
     onCancel();
   };
 
@@ -2169,8 +2202,10 @@ function ScoreWizard({ levelId, team, existing, onCancel, onSave }) {
 
 function PkScoreWizard({ levelId, team, pkRound, onCancel, onSave }) {
   const pkShotIndex = 1;
-  const [shot, setShot] = useState(() => ({ ...blankShot(false), distancePassed: true }));
-  const [step, setStep] = useState(0);
+  const draftKey = scoreDraftKey(levelId, team.id, "pk", pkRound);
+  const storedDraft = readScoreDraft(draftKey);
+  const [shot, setShot] = useState(() => storedDraft?.shot ?? { ...blankShot(false), distancePassed: true });
+  const [step, setStep] = useState(storedDraft?.step ?? 0);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const shots = [blankShot(false), shot];
@@ -2188,12 +2223,21 @@ function PkScoreWizard({ levelId, team, pkRound, onCancel, onSave }) {
   const allReady = shotReady(shot, pkShotIndex);
   const firstIncompleteStep = steps.findIndex((item) => !wizardStepReady(item, null, shots));
 
+  useEffect(() => {
+    writeScoreDraft(draftKey, {
+      shot,
+      step,
+      updatedAt: new Date().toISOString(),
+    });
+  }, [draftKey, shot, step]);
+
   const handleSave = async () => {
     if (!window.confirm(`ยืนยันบันทึกคะแนน PK${pkRound} ${displayTeamName(team)} หรือไม่?`)) return;
     setIsSaving(true);
     setSaveError("");
     try {
       await onSave(team, shot);
+      clearScoreDraft(draftKey);
     } catch (error) {
       setSaveError(error.message || "บันทึก PK ไม่สำเร็จ");
       setIsSaving(false);
@@ -2201,7 +2245,7 @@ function PkScoreWizard({ levelId, team, pkRound, onCancel, onSave }) {
   };
 
   const handleCancel = () => {
-    if (!window.confirm(`ยืนยันปิดหน้ากรอกคะแนน PK${pkRound} ${displayTeamName(team)} หรือไม่?\nคะแนน PK ที่เลือกไว้แต่ยังไม่ได้บันทึกจะหาย และระบบจะกลับไปหน้าแรก`)) return;
+    if (!window.confirm(`ยืนยันปิดหน้ากรอกคะแนน PK${pkRound} ${displayTeamName(team)} หรือไม่?\nคะแนน PK นี้ยังไม่บันทึกลงฐานกลาง แต่แบบร่างล่าสุดจะอยู่ในเครื่องนี้เมื่อกลับมาเปิดทีมเดิม`)) return;
     onCancel();
   };
 
